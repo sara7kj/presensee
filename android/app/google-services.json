@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "75442217286",
+    "project_id": "presensee-1989d",
+    "storage_bucket": "presensee-1989d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:75442217286:android:3bbd1ea1bbcaef4653c547",
+        "android_client_info": {
+          "package_name": "com.example.presensee"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "75442217286-rqs109tfhmk552vnmb7tjk7rpae9j6t8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfRVOBCmtQnkJSaQMlbUYayb_bo_GhLXQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "75442217286-rqs109tfhmk552vnmb7tjk7rpae9j6t8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
