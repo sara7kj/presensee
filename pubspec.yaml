@@ -11,6 +11,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  google_maps_flutter: ^2.5.3
+  firebase_core:
+  firebase_auth:
+  cloud_firestore:
+  firebase_messaging:
+  geolocator:
 
   tflite_flutter: ^0.11.0
   image_picker: ^1.1.2
@@ -19,12 +25,9 @@ dependencies:
 
 
   cupertino_icons: ^1.0.8
-  firebase_core: ^4.4.0
-  firebase_auth: ^6.1.4
-
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
+ #dev_dependencies:
+    #flutter_test:
+     #sdk: flutter
 
   flutter_lints: ^5.0.0
 
