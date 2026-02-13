@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // كودك
-import 'package:geolocator/geolocator.dart'; // كودك
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -24,12 +24,12 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const LoginPage(), // يبدأ بشغل صديقتك
+      home: const LoginPage(),
     );
   }
 }
 
-// --- شغل صديقتك (بدون حذف) ---
+// --- صفحة تسجيل الدخول (شغل صديقتك) ---
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
 
@@ -66,8 +66,6 @@ class LoginPage extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // هنا ربطنا شغل صديقتك بشغلك:
-                  // عند الضغط على الزر يفتح صفحة الحضور التي صممتيها
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -84,7 +82,7 @@ class LoginPage extends StatelessWidget {
   }
 }
 
-// --- شغلك أنتِ (إضافة بالأسفل) ---
+// --- صفحة الحضور (شغلك مع الإحداثيات الـ 7 الجديدة) ---
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
 
@@ -96,7 +94,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Future<void> checkAttendance() async {
-    // يطلب الإذن بناءً على الصلاحيات التي أضفتيها في AndroidManifest
     LocationPermission permission = await Geolocator.requestPermission();
 
     if (permission == LocationPermission.always ||
@@ -105,16 +102,23 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         Position position = await Geolocator.getCurrentPosition(
             desiredAccuracy: LocationAccuracy.high);
 
-        // جلب الإحداثيات من Firestore
-        QuerySnapshot locations =
-            await _firestore.collection('locations').get();
         bool inside = false;
 
-        for (var doc in locations.docs) {
-          double lat = doc['lat'];
-          double lng = doc['lng'];
+        // قائمة الإحداثيات اليدوية التي أرسلتيها
+        List<Map<String, double>> manualLocations = [
+          {'lat': 24.1608566, 'lng': 47.2731534},
+          {'lat': 23.991732, 'lng': 47.119911},
+          {'lat': 23.9964898, 'lng': 47.1129058},
+          {'lat': 23.9886747, 'lng': 47.1267959},
+          {'lat': 24.1636391, 'lng': 47.3122536},
+          {'lat': 24.1471470, 'lng': 47.2709184},
+          {'lat': 24.1470161, 'lng': 47.2711555},
+        ];
+
+        // 1. فحص الإحداثيات اليدوية
+        for (var loc in manualLocations) {
           double distance = Geolocator.distanceBetween(
-              position.latitude, position.longitude, lat, lng);
+              position.latitude, position.longitude, loc['lat']!, loc['lng']!);
 
           if (distance <= 100) {
             inside = true;
@@ -122,6 +126,24 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           }
         }
 
+        // 2. فحص الإحداثيات في Firestore إذا لم ينجح الفحص اليدوي
+        if (!inside) {
+          QuerySnapshot locations =
+              await _firestore.collection('locations').get();
+          for (var doc in locations.docs) {
+            double lat = doc['lat'];
+            double lng = doc['lng'];
+            double distance = Geolocator.distanceBetween(
+                position.latitude, position.longitude, lat, lng);
+
+            if (distance <= 100) {
+              inside = true;
+              break;
+            }
+          }
+        }
+
+        // 3. معالجة النتيجة
         if (inside) {
           await _firestore.collection('attendance').add({
             'studentId': '123',
@@ -136,11 +158,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         _showMsg("خطأ: $e");
       }
     } else {
-      _showMsg("يجب السماح بالموقع");
+      _showMsg("يجب السماح بالوصول للموقع");
     }
   }
 
   void _showMsg(String msg) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
@@ -151,6 +174,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       body: Center(
         child: ElevatedButton(
           onPressed: checkAttendance,
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+          ),
           child: const Text("اضغط لتسجيل الحضور"),
         ),
       ),
