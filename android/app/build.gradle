@@ -10,7 +10,8 @@ plugins {
 
 android {
     namespace = "com.example.presensee"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
+
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -32,6 +33,9 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
+buildFeatures {
+    buildConfig = true
+}
 
     buildTypes {
         release {

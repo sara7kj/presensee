@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // كودك
-import 'package:geolocator/geolocator.dart'; // كودك
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
 import 'firebase_options.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 
@@ -13,25 +17,25 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
-    return const MaterialApp(home: ModelTestPage());
-  }
-}
+    return MaterialApp(
+      title: 'PresenSee',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const LoginPage(), // يبدأ بشغل صديقتك
+      home: const LoginPage(), // شغل صديقتك كبداية
     );
   }
 }
 
-// --- شغل صديقتك (بدون حذف) ---
+// --- شغل صديقتك ---
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
->>>>>>> 6b7a371ff37081740b41691b600d2b3f3c4475b6
 
   @override
   Widget build(BuildContext context) {
+    return Scaffold(
       appBar: AppBar(title: const Text('PresenSee')),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -62,12 +66,11 @@ class LoginPage extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // هنا ربطنا شغل صديقتك بشغلك:
-                  // عند الضغط على الزر يفتح صفحة الحضور التي صممتيها
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => const AttendanceScreen()),
+                      builder: (context) => const AttendanceScreen(),
+                    ),
                   );
                 },
                 child: const Text('Sign in'),
@@ -80,7 +83,7 @@ class LoginPage extends StatelessWidget {
   }
 }
 
-// --- شغلك أنتِ (إضافة بالأسفل) ---
+// --- شغلك ---
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
 
@@ -92,25 +95,29 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Future<void> checkAttendance() async {
-    // يطلب الإذن بناءً على الصلاحيات التي أضفتيها في AndroidManifest
-    LocationPermission permission = await Geolocator.requestPermission();
+    final permission = await Geolocator.requestPermission();
 
     if (permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse) {
       try {
-        Position position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high);
+        final position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
 
-        // جلب الإحداثيات من Firestore
-        QuerySnapshot locations =
-            await _firestore.collection('locations').get();
+        final locations = await _firestore.collection('locations').get();
         bool inside = false;
 
-        for (var doc in locations.docs) {
-          double lat = doc['lat'];
-          double lng = doc['lng'];
-          double distance = Geolocator.distanceBetween(
-              position.latitude, position.longitude, lat, lng);
+        for (final doc in locations.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final double lat = (data['lat'] as num).toDouble();
+          final double lng = (data['lng'] as num).toDouble();
+
+          final distance = Geolocator.distanceBetween(
+            position.latitude,
+            position.longitude,
+            lat,
+            lng,
+          );
 
           if (distance <= 100) {
             inside = true;
@@ -122,7 +129,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           await _firestore.collection('attendance').add({
             'studentId': '123',
             'time': Timestamp.now(),
-            'status': 'present'
+            'status': 'present',
           });
           _showMsg("تم تسجيل حضورك بنجاح ✅");
         } else {
@@ -137,7 +144,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   void _showMsg(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
   }
 
   @override

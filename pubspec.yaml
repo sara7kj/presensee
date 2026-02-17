@@ -1,7 +1,7 @@
 name: presensee
 description: "A new Flutter project."
 
-publish_to: 'none' 
+publish_to: 'none'
 
 version: 1.0.0+1
 
@@ -11,31 +11,29 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
   google_maps_flutter: ^2.5.3
-  firebase_core:
-  firebase_auth:
-  cloud_firestore:
-  firebase_messaging:
-  geolocator:
+  firebase_core: ^4.4.0
+  cloud_firestore: ^6.1.2
+  firebase_auth: ^6.1.4
+  firebase_messaging: ^16.1.1
 
-  tflite_flutter: ^0.11.0
+  geolocator: ^13.0.2
+
+
+  tflite_flutter: ^0.12.1
   image_picker: ^1.1.2
-  google_mlkit_face_detection: 0.10.0
+  google_mlkit_face_detection: ^0.13.1
   image: ^4.2.0
-
-
   cupertino_icons: ^1.0.8
- #dev_dependencies:
-    #flutter_test:
-     #sdk: flutter
 
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
   flutter_lints: ^5.0.0
-
 
 flutter:
   uses-material-design: true
 
   assets:
     - assets/models/mobilefacenet.tflite
-
- 
