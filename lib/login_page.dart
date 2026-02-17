@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'face_verify_page.dart';
 import 'signup_page.dart';
+import 'attendance_screen.dart';
 
 
 class LoginPage extends StatefulWidget {
@@ -61,12 +62,16 @@ class _LoginPageState extends State<LoginPage> {
             SizedBox(
   width: double.infinity,
   child: ElevatedButton(
-    onPressed: () async {
-      // هنا بنحط كود تسجيل الدخول لاحقًا
+    onPressed: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AttendanceScreen()),
+      );
     },
     child: const Text('Sign in'),
   ),
 ),
+
 
 const SizedBox(height: 12),
 

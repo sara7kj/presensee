@@ -57,9 +57,12 @@ class _SignUpPageState extends State<SignUpPage> {
 
       // 3) Go to FaceVerifyPage (enroll face next)
       Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const FaceVerifyPage()),
-      );
+  context,
+  MaterialPageRoute(
+    builder: (_) => const FaceVerifyPage(enrollMode: true),
+  ),
+  );
+
     } on FirebaseAuthException catch (e) {
       setState(() {
         error = e.message ?? e.code;

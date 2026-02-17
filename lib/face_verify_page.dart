@@ -4,11 +4,14 @@ import 'package:camera/camera.dart';
 import 'package:geolocator/geolocator.dart';
 
 class FaceVerifyPage extends StatefulWidget {
-  const FaceVerifyPage({super.key});
+  final bool enrollMode; // true = تسجيل وجه، false = تحقق حضور
+
+  const FaceVerifyPage({super.key, this.enrollMode = false});
 
   @override
   State<FaceVerifyPage> createState() => _FaceVerifyPageState();
 }
+
 
 class _FaceVerifyPageState extends State<FaceVerifyPage> {
   final FaceNetService _service = FaceNetService();
@@ -26,18 +29,25 @@ class _FaceVerifyPageState extends State<FaceVerifyPage> {
   }
 
   Future<void> _initAll() async {
-    setState(() => status = "Loading model + camera + location...");
+  setState(() => status = "Loading model + camera...");
 
-    // شغّليهم مع بعض (أسرع)
-    await Future.wait([
-      _loadFaceAndCamera(),
-      _checkLocation(),
-    ]);
+  await _loadFaceAndCamera();
+
+  if (widget.enrollMode) {
+    setState(() {
+      isLocationValid = true; // في التسجيل نسمح بالتصوير
+      status = "Enroll mode | Face register";
+    });
+  } else {
+    setState(() => status = "Checking location...");
+    await _checkLocation();
 
     setState(() {
       status = _buildStatusText();
     });
   }
+}
+
 
   Future<void> _loadFaceAndCamera() async {
     try {
@@ -138,7 +148,7 @@ class _FaceVerifyPageState extends State<FaceVerifyPage> {
       );
     }
 
-    final canCapture = isLocationValid; 
+    final canCapture = widget.enrollMode ? true : isLocationValid;
 
     return Scaffold(
       body: Stack(
