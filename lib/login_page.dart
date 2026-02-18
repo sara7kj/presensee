@@ -81,14 +81,13 @@ SizedBox(
     onPressed: () {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => const SignUpPage(),
-        ),
+        MaterialPageRoute(builder: (_) => const SignUpPage()),
       );
     },
     child: const Text('Sign up'),
   ),
 ),
+
 
           ],
         ),

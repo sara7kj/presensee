@@ -12,17 +12,23 @@ class AttendanceScreen extends StatefulWidget {
 class _AttendanceScreenState extends State<AttendanceScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  bool isLoading = false;
+
   Future<void> checkAttendance() async {
+    setState(() => isLoading = true);
+
     LocationPermission permission = await Geolocator.requestPermission();
 
     if (permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse) {
       try {
         Position position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high);
+          desiredAccuracy: LocationAccuracy.high,
+        );
 
         bool inside = false;
 
+        // Manual training locations
         List<Map<String, double>> manualLocations = [
           {'lat': 24.1608566, 'lng': 47.2731534},
           {'lat': 23.991732, 'lng': 47.119911},
@@ -33,9 +39,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           {'lat': 24.1470161, 'lng': 47.2711555},
         ];
 
+        // Check manual coordinates
         for (var loc in manualLocations) {
           double distance = Geolocator.distanceBetween(
-              position.latitude, position.longitude, loc['lat']!, loc['lng']!);
+            position.latitude,
+            position.longitude,
+            loc['lat']!,
+            loc['lng']!,
+          );
 
           if (distance <= 100) {
             inside = true;
@@ -43,14 +54,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           }
         }
 
+        // Check Firestore locations if not found manually
         if (!inside) {
           QuerySnapshot locations =
               await _firestore.collection('locations').get();
+
           for (var doc in locations.docs) {
             double lat = doc['lat'];
             double lng = doc['lng'];
+
             double distance = Geolocator.distanceBetween(
-                position.latitude, position.longitude, lat, lng);
+              position.latitude,
+              position.longitude,
+              lat,
+              lng,
+            );
 
             if (distance <= 100) {
               inside = true;
@@ -59,38 +77,56 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           }
         }
 
+        // Final result
         if (inside) {
           await _firestore.collection('attendance').add({
             'studentId': '123',
             'time': Timestamp.now(),
-            'status': 'present'
+            'status': 'present',
           });
-          _showMsg("تم تسجيل حضورك بنجاح ✅");
+
+          _showMsg("Attendance recorded successfully ✅");
         } else {
-          _showMsg("أنت خارج النطاق ❌");
+          _showMsg("You are outside the training location ❌");
         }
       } catch (e) {
-        _showMsg("خطأ: $e");
+        _showMsg("Error: $e");
       }
     } else {
-      _showMsg("يجب السماح بالوصول للموقع");
+      _showMsg("Location permission is required");
     }
+
+    setState(() => isLoading = false);
   }
 
   void _showMsg(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("تسجيل الحضور")),
+      appBar: AppBar(
+        title: const Text("Attendance"),
+        centerTitle: true,
+      ),
       body: Center(
-        child: ElevatedButton(
-          onPressed: checkAttendance,
-          child: const Text("اضغط لتسجيل الحضور"),
-        ),
+        child: isLoading
+            ? const CircularProgressIndicator()
+            : ElevatedButton(
+                onPressed: checkAttendance,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 40, vertical: 15),
+                ),
+                child: const Text(
+                  "Check In",
+                  style: TextStyle(fontSize: 18),
+                ),
+              ),
       ),
     );
   }
