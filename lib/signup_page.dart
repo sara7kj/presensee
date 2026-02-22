@@ -14,6 +14,7 @@ class SignUpPage extends StatefulWidget {
 class _SignUpPageState extends State<SignUpPage> {
   final emailC = TextEditingController();
   final passC = TextEditingController();
+  final confirmC = TextEditingController();
 
   bool loading = false;
   String? error;
@@ -22,60 +23,89 @@ class _SignUpPageState extends State<SignUpPage> {
   void dispose() {
     emailC.dispose();
     passC.dispose();
+    confirmC.dispose();
     super.dispose();
   }
 
+  bool _isValidEmail(String email) {
+    return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email);
+  }
+
   Future<void> _signUp() async {
+    final email = emailC.text.trim();
+    final pass = passC.text.trim();
+    final confirm = confirmC.text.trim();
+
     setState(() {
-      loading = true;
       error = null;
     });
 
+    // ✅ Validation
+    if (email.isEmpty || pass.isEmpty || confirm.isEmpty) {
+      setState(() => error = "Please fill all fields");
+      return;
+    }
+
+    if (!_isValidEmail(email)) {
+      setState(() => error = "Please enter a valid email");
+      return;
+    }
+
+    if (pass.length < 6) {
+      setState(() => error = "Password must be at least 6 characters");
+      return;
+    }
+
+    if (pass != confirm) {
+      setState(() => error = "Passwords do not match");
+      return;
+    }
+
+    setState(() {
+      loading = true;
+    });
+
     try {
-      final email = emailC.text.trim();
-      final pass = passC.text.trim();
-
-      if (email.isEmpty || pass.isEmpty) {
-        throw Exception("Please enter email and password.");
-      }
-
-      // 1) Create user in Auth
       final cred = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: email, password: pass);
 
       final uid = cred.user!.uid;
 
-      // 2) Create user doc in Firestore: users/{uid}
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
         'email': email,
         'createdAt': FieldValue.serverTimestamp(),
-        // نخليه فاضي لين نسجل الوجه
         'faceEmbedding': null,
       });
 
       if (!mounted) return;
 
-      // 3) Go to FaceVerifyPage (enroll face next)
       Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(
-    builder: (_) => const FaceVerifyPage(enrollMode: true),
-  ),
-  );
-
+        context,
+        MaterialPageRoute(
+          builder: (_) => const FaceVerifyPage(enrollMode: true),
+        ),
+      );
     } on FirebaseAuthException catch (e) {
-      setState(() {
-        error = e.message ?? e.code;
-      });
+      if (e.code == 'email-already-in-use') {
+        error = "This email is already in use";
+      } else if (e.code == 'invalid-email') {
+        error = "Invalid email";
+      } else if (e.code == 'weak-password') {
+        error = "Weak password";
+      } else {
+        error = e.message;
+      }
+      setState(() {});
     } catch (e) {
       setState(() {
-        error = e.toString();
+        error = "Something went wrong";
       });
     } finally {
-      if (!mounted) return;
-      setState(() {
-        loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
     }
   }
 
@@ -92,10 +122,11 @@ class _SignUpPageState extends State<SignUpPage> {
               'Create Account',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
             TextField(
               controller: emailC,
+              keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
                 labelText: 'Email',
                 border: OutlineInputBorder(),
@@ -108,6 +139,16 @@ class _SignUpPageState extends State<SignUpPage> {
               obscureText: true,
               decoration: const InputDecoration(
                 labelText: 'Password',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: confirmC,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Confirm Password',
                 border: OutlineInputBorder(),
               ),
             ),

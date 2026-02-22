@@ -104,19 +104,28 @@ class _FaceVerifyPageState extends State<FaceVerifyPage> {
 
 
       // verify mode: compare with stored embedding
-      final stored = await _getStoredEmbedding();
-      if (stored == null || stored.length != emb.length) {
-        setState(() {
-          isFaceOk = false;
-          status = "No stored face found for this account";
-        });
-        Navigator.pop(context, false);
-        return;
-      }
+final stored = await _getStoredEmbedding();
+if (stored == null || stored.length != emb.length) {
+  setState(() {
+    isFaceOk = false;
+    status = "No stored face found for this account";
+  });
+  Navigator.pop(context, false);
+  return;
+}
 
-      final dist = _l2Distance(emb, stored);
-      // Threshold مبدئي. نعدله حسب التجربة
-      final ok = dist < 1.10;
+// 🔥 Normalize الاثنين قبل المقارنة
+final liveN = _l2Normalize(emb);
+final storedN = _l2Normalize(stored);
+
+final dist = _l2Distance(liveN, storedN);
+
+print("LIVE len=${emb.length} first3=${emb.take(3).toList()}");
+print("STORED len=${stored.length} first3=${stored.take(3).toList()}");
+print("🧪 Face distance (normalized) = $dist");
+
+// Threshold مبدئي بعد التطبيع
+final ok = dist < 1.30;
 
       setState(() {
         isFaceOk = ok;
@@ -175,6 +184,15 @@ class _FaceVerifyPageState extends State<FaceVerifyPage> {
     }
     return math.sqrt(s);
   }
+  List<double> _l2Normalize(List<double> v) {
+  double s = 0;
+  for (final x in v) {
+    s += x * x;
+  }
+  final norm = math.sqrt(s);
+  if (norm == 0) return v;
+  return v.map((x) => x / norm).toList();
+}
 
   @override
   void dispose() {
