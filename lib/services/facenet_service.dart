@@ -21,7 +21,7 @@ class FaceNetService {
     throw Exception("Model not loaded. Call loadModel() first.");
   }
 
-  // اقرأ الصورة
+  
   final bytes = await File(imagePath).readAsBytes();
   final decoded = img.decodeImage(bytes);
   if (decoded == null) throw Exception("Failed to decode image");
@@ -29,7 +29,6 @@ class FaceNetService {
   // Resize إلى 112x112
   final resized = img.copyResize(decoded, width: 112, height: 112);
 
-  // batch size من الموديل (عندك = 2)
   final inShape = _interpreter!.getInputTensor(0).shape;   // [2,112,112,3]
   final outShape = _interpreter!.getOutputTensor(0).shape; // [2,192]
   final batch = inShape[0];

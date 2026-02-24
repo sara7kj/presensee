@@ -5,8 +5,10 @@ import 'package:camera/camera.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'attendance_screen.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:image/image.dart' as img;
 
+import 'attendance_screen.dart';
 import 'services/facenet_service.dart';
 
 class FaceVerifyPage extends StatefulWidget {
@@ -63,6 +65,70 @@ class _FaceVerifyPageState extends State<FaceVerifyPage> {
     }
   }
 
+  // ✅ Enrollment quality checks (قبل حفظ الوجه)
+  Future<String?> _validateEnrollmentPhoto(String imagePath) async {
+    final detector = FaceDetector(
+      options: FaceDetectorOptions(
+        performanceMode: FaceDetectorMode.accurate,
+        enableLandmarks: true,
+        enableClassification: true,
+      ),
+    );
+
+    final inputImage = InputImage.fromFilePath(imagePath);
+    final faces = await detector.processImage(inputImage);
+    await detector.close();
+
+    if (faces.isEmpty) return "No face detected. Center your face.";
+    if (faces.length > 1) return "Multiple faces detected. Only one face allowed.";
+
+    final f = faces.first;
+    final box = f.boundingBox;
+
+    // وجه صغير = بعيد أو جزء بسيط
+    if (box.width < 140 || box.height < 140) {
+      return "Face too small. Move closer.";
+    }
+
+    // ميلان كبير
+    final yaw = (f.headEulerAngleY ?? 0).abs();
+    final pitch = (f.headEulerAngleX ?? 0).abs();
+    if (yaw > 18 || pitch > 18) {
+      return "Keep your face straight (no heavy tilt).";
+    }
+    final leftEye = f.leftEyeOpenProbability ?? 1.0;
+    final rightEye = f.rightEyeOpenProbability ?? 1.0;
+    if (leftEye < 0.5 || rightEye < 0.5) {
+      return "Keep your eyes open";
+    }
+
+    // فحص الإضاءة (Brightness) سريع
+    final bytes = await File(imagePath).readAsBytes();
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return "Image unreadable. Try again.";
+
+    double sum = 0;
+    int count = 0;
+    for (int y = 0; y < decoded.height; y += 8) {
+      for (int x = 0; x < decoded.width; x += 8) {
+        final pixel = decoded.getPixel(x, y);
+
+        final r = pixel.r;
+        final g = pixel.g;
+        final b = pixel.b;
+        final lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        sum += lum;
+        count++;
+      }
+    }
+    final avgLum = sum / count;
+
+    if (avgLum < 55) return "Too dark. Increase lighting.";
+    if (avgLum > 220) return "Too bright. Avoid glare.";
+
+    return null; // ✅ ممتازة
+  }
+
   Future<void> _captureAndProcess() async {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       setState(() => status = "Camera not ready");
@@ -80,52 +146,62 @@ class _FaceVerifyPageState extends State<FaceVerifyPage> {
         throw Exception("Captured file not found");
       }
 
+      // ✅ لو تسجيل وجه: لازم نتحقق من جودة الصورة قبل التخزين
+      if (widget.enrollMode) {
+        final err = await _validateEnrollmentPhoto(pic.path);
+        if (err != null) {
+          setState(() {
+            isFaceOk = false;
+            status = err;
+          });
+          return; // ❌ لا نكمل ولا نخزن
+        }
+      }
+
       setState(() => status = "Running face model...");
       final emb = await _service.extractEmbeddingFromFile(pic.path);
 
       if (widget.enrollMode) {
-  setState(() => status = "Saving face...");
-  await _saveEmbeddingToFirestore(emb);
+        setState(() => status = "Saving face...");
+        await _saveEmbeddingToFirestore(emb);
 
-  setState(() {
-    isFaceOk = true;
-    status = "Face registered ✅";
-  });
+        setState(() {
+          isFaceOk = true;
+          status = "Face registered ✅";
+        });
 
-  // ننتقل مباشرة لصفحة الحضور
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const AttendanceScreen(),
-    ),
-  );
-  return;
-}
-
+        // ✅
+Navigator.pushReplacement(
+  context,
+  MaterialPageRoute(
+    builder: (_) => const AttendanceScreen(isCheckIn: true),
+  ),
+);
+        return;
+      }
 
       // verify mode: compare with stored embedding
-final stored = await _getStoredEmbedding();
-if (stored == null || stored.length != emb.length) {
-  setState(() {
-    isFaceOk = false;
-    status = "No stored face found for this account";
-  });
-  Navigator.pop(context, false);
-  return;
-}
+      final stored = await _getStoredEmbedding();
+      if (stored == null || stored.length != emb.length) {
+        setState(() {
+          isFaceOk = false;
+          status = "No stored face found for this account";
+        });
+        Navigator.pop(context, false);
+        return;
+      }
 
-// 🔥 Normalize الاثنين قبل المقارنة
-final liveN = _l2Normalize(emb);
-final storedN = _l2Normalize(stored);
+      final liveN = _l2Normalize(emb);
+      final storedN = _l2Normalize(stored);
 
-final dist = _l2Distance(liveN, storedN);
+      final dist = _l2Distance(liveN, storedN);
 
-print("LIVE len=${emb.length} first3=${emb.take(3).toList()}");
-print("STORED len=${stored.length} first3=${stored.take(3).toList()}");
-print("🧪 Face distance (normalized) = $dist");
+      print("LIVE len=${emb.length} first3=${emb.take(3).toList()}");
+      print("STORED len=${stored.length} first3=${stored.take(3).toList()}");
+      print("🧪 Face distance (normalized) = $dist");
 
-// Threshold مبدئي بعد التطبيع
-final ok = dist < 1.30;
+      // 🔧 مبدئيًا (بنضبطه لاحقًا حسب اختباراتكم)
+      final ok = dist < 0.95;
 
       setState(() {
         isFaceOk = ok;
@@ -155,6 +231,7 @@ final ok = dist < 1.30;
       {
         'email': user.email ?? '',
         'faceEmbedding': emb,
+        'faceEnrolled': true,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -184,15 +261,16 @@ final ok = dist < 1.30;
     }
     return math.sqrt(s);
   }
+
   List<double> _l2Normalize(List<double> v) {
-  double s = 0;
-  for (final x in v) {
-    s += x * x;
+    double s = 0;
+    for (final x in v) {
+      s += x * x;
+    }
+    final norm = math.sqrt(s);
+    if (norm == 0) return v;
+    return v.map((x) => x / norm).toList();
   }
-  final norm = math.sqrt(s);
-  if (norm == 0) return v;
-  return v.map((x) => x / norm).toList();
-}
 
   @override
   void dispose() {

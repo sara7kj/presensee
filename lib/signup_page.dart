@@ -50,6 +50,11 @@ class _SignUpPageState extends State<SignUpPage> {
       setState(() => error = "Please enter a valid email");
       return;
     }
+    // ✅ أضيفي هذا الـ validation
+    if (!email.endsWith('@std.psau.edu.sa')) {
+     setState(() => error = "Please use your university email");
+      return;
+    }
 
     if (pass.length < 6) {
       setState(() => error = "Password must be at least 6 characters");
@@ -71,11 +76,16 @@ class _SignUpPageState extends State<SignUpPage> {
 
       final uid = cred.user!.uid;
 
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'email': email,
-        'createdAt': FieldValue.serverTimestamp(),
-        'faceEmbedding': null,
-      });
+      
+await FirebaseFirestore.instance.collection('users').doc(uid).set({
+  'email': email,
+  'role': 'student',
+  'createdAt': FieldValue.serverTimestamp(),
+  'faceEmbedding': null,
+  'faceEnrolled': false,
+  'deviceId': null,
+  'locationId': null,
+});
 
       if (!mounted) return;
 
