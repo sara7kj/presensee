@@ -171,12 +171,7 @@ class _FaceVerifyPageState extends State<FaceVerifyPage> {
         });
 
         // ✅
-Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(
-    builder: (_) => const AttendanceScreen(isCheckIn: true),
-  ),
-);
+Navigator.of(context).popUntil((route) => route.isFirst);
         return;
       }
 
