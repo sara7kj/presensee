@@ -6,6 +6,8 @@ import 'firebase_options.dart';
 import 'welcome_page.dart';
 import 'attendance_screen.dart';
 import 'home_page.dart';
+import 'theme.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -21,6 +23,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,           // ← الثيم الفاتح
+      darkTheme: AppTheme.darkTheme,        // ← الثيم الغامق
+      themeMode: ThemeMode.light,           // ← الوضع الافتراضي
       home: const AuthGate(),
     );
   }
@@ -41,10 +46,9 @@ class AuthGate extends StatelessWidget {
         }
 
         if (snapshot.data != null) {
-        return const HomePage();
+          return const HomePage();
         }
 
-        // Not logged in -> Welcome (Sign in / Sign up)
         return const WelcomePage();
       },
     );

@@ -38,3 +38,5 @@ flutter:
 
   assets:
     - assets/models/mobilefacenet.tflite
+    - assets/models/logos/
+
