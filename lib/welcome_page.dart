@@ -49,141 +49,113 @@ class WelcomePage extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: Column(
                   children: [
-                    const Spacer(flex: 2),
+                    const Spacer(flex: 3),
 
                     // ── Logo ──
                     Image.asset(
-                      'assets/models/logos/logo_full_dark.png',
-                      width: size.width * 0.6,
+                      'assets/logos/logo_full_dark.png',
+                      width: size.width * 0.55,
                       fit: BoxFit.contain,
                     ),
 
-                    const Spacer(flex: 1),
+                    const SizedBox(height: DS.spaceXL),
 
-                    // Welcome card
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(DS.spaceLG),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? DS.darkCard.withOpacity(0.8)
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(DS.radiusXL + 8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
-                            blurRadius: 30,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
+                    // ── Welcome text ──
+                    const Text(
+                      'Welcome',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
-                      child: Column(
-                        children: [
-                          Text(
-                            'Welcome',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : DS.primary900,
-                            ),
+                    ),
+
+                    const SizedBox(height: DS.spaceSM),
+
+                    Text(
+                      'Mark your attendance with ease.\nSign in to get started.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.white.withOpacity(0.65),
+                        height: 1.5,
+                      ),
+                    ),
+
+                    const Spacer(flex: 2),
+
+                    // ── Sign in button (white solid) ──
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const LoginPage()),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: DS.primary700,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(DS.radiusLG),
                           ),
-
-                          const SizedBox(height: DS.spaceSM),
-
-                          Text(
-                            'Mark your attendance with ease.\nSign in to get started.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: isDark
-                                  ? DS.neutral400
-                                  : DS.neutral500,
-                              height: 1.5,
-                            ),
+                        ),
+                        child: const Text(
+                          'Sign in',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
                           ),
+                        ),
+                      ),
+                    ),
 
-                          const SizedBox(height: DS.spaceLG),
+                    const SizedBox(height: DS.spaceMD),
 
-                          // Sign in button
-                          SizedBox(
-                            width: double.infinity,
-                            height: 52,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const LoginPage()),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: DS.primary500,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(DS.radiusLG),
-                                ),
-                              ),
-                              child: const Text(
-                                'Sign in',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
+                    // ── Sign up button (transparent + white border) ──
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const SignUpPage()),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: BorderSide(
+                            color: Colors.white.withOpacity(0.4),
+                            width: 1.5,
                           ),
-
-                          const SizedBox(height: DS.spaceSM + 4),
-
-                          // Sign up button
-                          SizedBox(
-                            width: double.infinity,
-                            height: 52,
-                            child: OutlinedButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const SignUpPage()),
-                                );
-                              },
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor:
-                                    isDark ? DS.primary300 : DS.primary500,
-                                side: BorderSide(
-                                  color: isDark
-                                      ? DS.primary700
-                                      : DS.primary200,
-                                  width: 1.5,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(DS.radiusLG),
-                                ),
-                              ),
-                              child: const Text(
-                                'Sign up',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(DS.radiusLG),
                           ),
-                        ],
+                        ),
+                        child: const Text(
+                          'Sign up',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
 
                     const Spacer(flex: 1),
 
-                    // Bottom quote
+                    // ── Bottom quote ──
                     Text(
                       'There is no time like the PRESENT',
                       style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withOpacity(0.45),
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.35),
                         fontStyle: FontStyle.italic,
                         letterSpacing: 0.3,
                       ),
@@ -200,7 +172,6 @@ class WelcomePage extends StatelessWidget {
     );
   }
 
-  /// Decorative translucent circle
   Widget _bubble(double size, bool isDark) {
     return Container(
       width: size,
