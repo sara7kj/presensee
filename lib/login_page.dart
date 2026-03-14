@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'signup_page.dart';
-import 'attendance_screen.dart';
 import 'home_page.dart';
 import 'theme.dart';
 
@@ -37,8 +36,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
-    _fadeAnim =
-        CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
+    _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(
       begin: const Offset(0, 0.08),
       end: Offset.zero,
@@ -283,8 +281,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                 color: Colors.white.withOpacity(0.4),
                                 size: 20,
                               ),
-                              onPressed: () => setState(
-                                  () => _obscurePass = !_obscurePass),
+                              onPressed: () =>
+                                  setState(() => _obscurePass = !_obscurePass),
                             ),
                           ),
 
@@ -395,8 +393,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                     color: Colors.white.withOpacity(0.15)),
                               ),
                               Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 14),
                                 child: Text(
                                   "Don't have an account?",
                                   style: TextStyle(
@@ -425,8 +423,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                            builder: (_) =>
-                                                const SignUpPage()),
+                                            builder: (_) => const SignUpPage()),
                                       );
                                     },
                               style: OutlinedButton.styleFrom(
@@ -486,8 +483,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           color: Colors.white.withOpacity(0.35),
           fontSize: 14,
         ),
-        prefixIcon:
-            Icon(icon, color: Colors.white.withOpacity(0.4), size: 20),
+        prefixIcon: Icon(icon, color: Colors.white.withOpacity(0.4), size: 20),
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: Colors.white.withOpacity(0.08),

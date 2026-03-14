@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'firebase_options.dart';
 import 'welcome_page.dart';
-import 'attendance_screen.dart';
 import 'home_page.dart';
 import 'theme.dart';
 
@@ -23,9 +22,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,           // ← الثيم الفاتح
-      darkTheme: AppTheme.darkTheme,        // ← الثيم الغامق
-      themeMode: ThemeMode.light,           // ← الوضع الافتراضي
+      theme: AppTheme.lightTheme, // ← الثيم الفاتح
+      darkTheme: AppTheme.darkTheme, // ← الثيم الغامق
+      themeMode: ThemeMode.light, // ← الوضع الافتراضي
       home: const AuthGate(),
     );
   }

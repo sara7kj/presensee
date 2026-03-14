@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 
-import 'attendance_screen.dart';
 import 'services/facenet_service.dart';
 
 class FaceVerifyPage extends StatefulWidget {
@@ -80,7 +79,8 @@ class _FaceVerifyPageState extends State<FaceVerifyPage> {
     await detector.close();
 
     if (faces.isEmpty) return "No face detected. Center your face.";
-    if (faces.length > 1) return "Multiple faces detected. Only one face allowed.";
+    if (faces.length > 1)
+      return "Multiple faces detected. Only one face allowed.";
 
     final f = faces.first;
     final box = f.boundingBox;
@@ -171,7 +171,7 @@ class _FaceVerifyPageState extends State<FaceVerifyPage> {
         });
 
         // ✅
-Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.of(context).popUntil((route) => route.isFirst);
         return;
       }
 
@@ -237,8 +237,10 @@ Navigator.of(context).popUntil((route) => route.isFirst);
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return null;
 
-    final doc =
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
     if (!doc.exists) return null;
 
     final data = doc.data();
@@ -293,7 +295,6 @@ Navigator.of(context).popUntil((route) => route.isFirst);
       body: Stack(
         children: [
           CameraPreview(_cameraController!),
-
           Positioned(
             top: 20,
             left: 16,
@@ -308,7 +309,6 @@ Navigator.of(context).popUntil((route) => route.isFirst);
               ),
             ),
           ),
-
           Positioned(
             bottom: 40,
             left: 0,

@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
@@ -11,7 +10,7 @@ class FaceNetService {
     try {
       // إعدادات اختيارية لزيادة السرعة والاستقرار
       final options = InterpreterOptions()..threads = 4;
-      
+
       _interpreter = await Interpreter.fromAsset(
         'assets/models/mobilefacenet.tflite',
         options: options,
@@ -40,7 +39,8 @@ class FaceNetService {
       ),
     );
 
-    final faces = await detector.processImage(InputImage.fromFilePath(imagePath));
+    final faces =
+        await detector.processImage(InputImage.fromFilePath(imagePath));
     await detector.close();
 
     if (faces.isEmpty) throw Exception("No face detected");
@@ -64,7 +64,9 @@ class FaceNetService {
     // 4) تجهيز المدخلات (Input)
     // بما أن الـ Log عندك أظهر [2, 112, 112, 3]، سنقوم بتكرار الصورة مرتين لتجنب الخطأ
     // ولكن سنحاول أولاً إرسالها كـ Batch واحد وإذا كان الموديل صارم سيتعامل معها
-    final inputShape = _interpreter!.getInputTensor(0).shape; // غالباً [1, 112, 112, 3] أو [2, 112, 112, 3]
+    final inputShape = _interpreter!
+        .getInputTensor(0)
+        .shape; // غالباً [1, 112, 112, 3] أو [2, 112, 112, 3]
     final batchSize = inputShape[0];
 
     var input = List.generate(
@@ -86,9 +88,11 @@ class FaceNetService {
     );
 
     // 5) تجهيز المخرجات (Output)
-    final outputShape = _interpreter!.getOutputTensor(0).shape; // [batchSize, 192]
+    final outputShape =
+        _interpreter!.getOutputTensor(0).shape; // [batchSize, 192]
     final outputSize = outputShape[1];
-    final output = List.generate(batchSize, (_) => List.filled(outputSize, 0.0));
+    final output =
+        List.generate(batchSize, (_) => List.filled(outputSize, 0.0));
 
     // 6) تشغيل الموديل
     try {

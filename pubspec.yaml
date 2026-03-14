@@ -27,7 +27,8 @@ dependencies:
   google_mlkit_face_detection: ^0.13.1
   image: ^4.2.0
   cupertino_icons: ^1.0.8
-
+  file_picker: ^8.0.0
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter
