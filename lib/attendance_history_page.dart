@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'theme.dart';
 
 class AttendanceHistoryPage extends StatefulWidget {
@@ -9,46 +11,35 @@ class AttendanceHistoryPage extends StatefulWidget {
 }
 
 class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
-  // الفلتر المختار حالياً
   String selectedFilter = 'All';
 
-  // بيانات تجريبية (Mock Data) لمحاكاة الحضور
-  final List<Map<String, dynamic>> attendanceData = [
-    {
-      'date': 'Oct 24, 2023',
-      'day': 'Thursday',
-      'status': 'Present',
-      'time': '08:02 AM'
-    },
-    {
-      'date': 'Oct 23, 2023',
-      'day': 'Wednesday',
-      'status': 'Absent',
-      'time': '-'
-    },
-    {
-      'date': 'Oct 22, 2023',
-      'day': 'Tuesday',
-      'status': 'Present',
-      'time': '07:55 AM'
-    },
-    {
-      'date': 'Oct 21, 2023',
-      'day': 'Monday',
-      'status': 'Late',
-      'time': '08:45 AM'
-    },
-    {'date': 'Oct 20, 2023', 'day': 'Sunday', 'status': 'Excused', 'time': '-'},
-  ];
+  // تحديد الـ Status من وقت الدخول
+  String _getStatus(Map<String, dynamic> data) {
+    if (data['checkOut'] == null) return 'Present';
+    return data['status'] ?? 'Present';
+  }
+
+  // تنسيق التاريخ
+  String _formatDate(Timestamp ts) {
+    final d = ts.toDate();
+    const months = ['Jan','Feb','Mar','Apr','May','Jun',
+                    'Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${months[d.month - 1]} ${d.day}, ${d.year}';
+  }
+
+  // تنسيق الوقت
+  String _formatTime(Timestamp? ts) {
+    if (ts == null) return '-';
+    final d = ts.toDate();
+    final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
+    final m = d.minute.toString().padLeft(2, '0');
+    final period = d.hour >= 12 ? 'PM' : 'AM';
+    return '$h:$m $period';
+  }
 
   @override
   Widget build(BuildContext context) {
-    // تصفية البيانات بناءً على الفلتر المختار
-    final filteredList = selectedFilter == 'All'
-        ? attendanceData
-        : attendanceData
-            .where((item) => item['status'] == selectedFilter)
-            .toList();
+    final uid = FirebaseAuth.instance.currentUser!.uid;
 
     return ThemedScaffold(
       appBar: const CustomHeader(
@@ -58,34 +49,70 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
       body: Column(
         children: [
           const SizedBox(height: DS.spaceLG),
-          // ── قسم الفلاتر (Horizontal Filter List) ──
           _buildFilterSection(),
-
           const SizedBox(height: DS.spaceMD),
 
-          // ── قائمة السجلات ──
           Expanded(
-            child: filteredList.isEmpty
-                ? const EmptyState(
+            child: StreamBuilder<QuerySnapshot>(
+              // جلب بيانات الطالب من Firebase مرتبة بالتاريخ
+              stream: FirebaseFirestore.instance
+                  .collection('attendance')
+                  .where('uid', isEqualTo: uid)
+                  .orderBy('checkIn', descending: true)
+                  .snapshots(),
+
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const EmptyState(
                     icon: Icons.calendar_today_outlined,
                     title: 'No Records Found',
-                    subtitle: 'Try changing the filter or check back later.',
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.only(bottom: DS.spaceXL),
-                    itemCount: filteredList.length,
-                    itemBuilder: (context, index) {
-                      final item = filteredList[index];
-                      return _buildAttendanceCard(item);
-                    },
-                  ),
+                    subtitle: 'Your attendance history will appear here.',
+                  );
+                }
+
+                // تحويل البيانات
+                var records = snapshot.data!.docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return {
+                    'date': _formatDate(data['checkIn'] as Timestamp),
+                    'time': _formatTime(data['checkIn'] as Timestamp?),
+                    'status': _getStatus(data),
+                  };
+                }).toList();
+
+                // تطبيق الفلتر
+                if (selectedFilter != 'All') {
+                  records = records
+                      .where((r) => r['status'] == selectedFilter)
+                      .toList();
+                }
+
+                if (records.isEmpty) {
+                  return const EmptyState(
+                    icon: Icons.filter_list_off_rounded,
+                    title: 'No Records Found',
+                    subtitle: 'Try changing the filter.',
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.only(bottom: DS.spaceXL),
+                  itemCount: records.length,
+                  itemBuilder: (context, index) =>
+                      _buildAttendanceCard(records[index]),
+                );
+              },
+            ),
           ),
         ],
       ),
     );
   }
 
-  // بناء أزرار الفلترة
   Widget _buildFilterSection() {
     final filters = ['All', 'Present', 'Absent', 'Late', 'Excused'];
     return SingleChildScrollView(
@@ -99,14 +126,16 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
             child: ChoiceChip(
               label: Text(filter),
               selected: isSelected,
-              onSelected: (val) => setState(() => selectedFilter = filter),
+              onSelected: (_) => setState(() => selectedFilter = filter),
               selectedColor: DS.primary500,
-              backgroundColor: Theme.of(context).brightness == Brightness.dark
-                  ? DS.darkSurface
-                  : Colors.white,
+              backgroundColor:
+                  Theme.of(context).brightness == Brightness.dark
+                      ? DS.darkSurface
+                      : Colors.white,
               labelStyle: TextStyle(
                 color: isSelected ? Colors.white : DS.neutral500,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                fontWeight:
+                    isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           );
@@ -115,14 +144,14 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
     );
   }
 
-  // بناء بطاقة الحضور لكل يوم
   Widget _buildAttendanceCard(Map<String, dynamic> item) {
     return Card(
+      margin: const EdgeInsets.symmetric(
+          horizontal: DS.spaceMD, vertical: DS.spaceSM / 2),
       child: Padding(
         padding: const EdgeInsets.all(DS.spaceMD),
         child: Row(
           children: [
-            // التاريخ واليوم
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,48 +162,35 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                         fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    item['day'],
-                    style: TextStyle(color: DS.neutral500, fontSize: 13),
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time,
+                          size: 13, color: DS.neutral400),
+                      const SizedBox(width: 4),
+                      Text(
+                        item['time'],
+                        style: const TextStyle(
+                            fontSize: 12, color: DS.neutral500),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-
-            // وقت الحضور (إذا وجد)
-            if (item['time'] != '-')
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: Column(
-                  children: [
-                    const Icon(Icons.access_time,
-                        size: 14, color: DS.neutral400),
-                    Text(item['time'], style: const TextStyle(fontSize: 11)),
-                  ],
-                ),
-              ),
-
-            // الحالة (باستخدام المكون الذي أنشأته أنت)
-            _getStatusBadge(item['status']),
+            _getStatusBadge(item['status']!),
           ],
         ),
       ),
     );
   }
 
-  // دالة مساعدة لربط النصوص بالـ StatusBadge الخاص بك
   Widget _getStatusBadge(String status) {
     switch (status) {
-      case 'Present':
-        return StatusBadge.present();
-      case 'Absent':
-        return StatusBadge.absent();
-      case 'Late':
-        return StatusBadge.late();
-      case 'Excused':
-        return StatusBadge.excused();
-      default:
-        return const SizedBox.shrink();
+      case 'Present': return StatusBadge.present();
+      case 'Absent':  return StatusBadge.absent();
+      case 'Late':    return StatusBadge.late();
+      case 'Excused': return StatusBadge.excused();
+      default:        return const SizedBox.shrink();
     }
   }
 }

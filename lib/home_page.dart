@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'attendance_screen.dart';
 import 'login_page.dart';
+import 'submit_excuse_page.dart';       // اسم ملف الـ Excuse عندك
+import 'attendance_history_page.dart';      // اسم ملف الـ History عندك
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -420,28 +422,34 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
         // Secondary Buttons Row
         Row(
-          children: [
-            Expanded(
-              child: _buildSecondaryButton(
-                label: "Excuse",
-                icon: Icons.description_outlined,
-                onTap: () {
-                  // TODO: navigate to excuse page
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildSecondaryButton(
-                label: "History",
-                icon: Icons.history_rounded,
-                onTap: () {
-                  // TODO: navigate to history page
-                },
-              ),
-            ),
-          ],
-        ),
+  children: [
+    Expanded(
+      child: _buildSecondaryButton(
+        label: "Excuse",
+        icon: Icons.description_outlined,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SubmitExcusePage()),
+          );
+        },
+      ),
+    ),
+    const SizedBox(width: 12),
+    Expanded(
+      child: _buildSecondaryButton(
+        label: "History",
+        icon: Icons.history_rounded,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AttendanceHistoryPage()),
+          );
+        },
+      ),
+    ),
+  ],
+),
       ],
     );
   }
