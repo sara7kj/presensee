@@ -1,16 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'theme.dart';
 import 'supervisor_dashboard.dart';
 import 'supervisor_students_list.dart';
 import 'supervisor_excuses.dart';
-
-// ═══════════════════════════════════════════════════════
-//  SupervisorShell — Main layout: Sidebar + Pages
-// ═══════════════════════════════════════════════════════
+import 'web_login_page.dart';
 
 class SupervisorShell extends StatefulWidget {
   final String supervisorId;
-  const SupervisorShell({super.key, required this.supervisorId});
+  final String supervisorName;    // ← ديناميكي من Firestore
+  final String supervisorEmail;   // ← ديناميكي من Firestore
+  final String department;        // ← ديناميكي من Firestore
+
+  const SupervisorShell({
+    super.key,
+    required this.supervisorId,
+    required this.supervisorName,
+    required this.supervisorEmail,
+    required this.department,
+  });
+
   @override
   State<SupervisorShell> createState() => _SupervisorShellState();
 }
@@ -18,16 +27,29 @@ class SupervisorShell extends StatefulWidget {
 class _SupervisorShellState extends State<SupervisorShell> {
   int _idx = 0;
 
+  // الأحرف الأولى من الاسم — ديناميكية
+  String get _initials => widget.supervisorName
+      .split(' ')
+      .map((w) => w.isNotEmpty ? w[0] : '')
+      .take(2)
+      .join()
+      .toUpperCase();
+
+  void _logout() async {
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const WebLoginPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DS.neutral50,
       body: Row(children: [
-        _Sidebar(
-          selected: _idx,
-          onTap: (i) => setState(() => _idx = i),
-          supervisorId: widget.supervisorId,
-        ),
+        _buildSidebar(),
         Expanded(child: _page()),
       ]),
     );
@@ -36,25 +58,21 @@ class _SupervisorShellState extends State<SupervisorShell> {
   Widget _page() => switch (_idx) {
     0 => SupervisorDashboard(
       supervisorId: widget.supervisorId,
+      supervisorName: widget.supervisorName,
       onViewStudents: () => setState(() => _idx = 1),
       onViewExcuses: () => setState(() => _idx = 2),
     ),
     1 => SupervisorStudentsList(supervisorId: widget.supervisorId),
     2 => SupervisorExcuses(supervisorId: widget.supervisorId),
-    _ => SupervisorDashboard(supervisorId: widget.supervisorId),
+    _ => SupervisorDashboard(
+      supervisorId: widget.supervisorId,
+      supervisorName: widget.supervisorName,
+    ),
   };
-}
 
-// ═══════════════════════════════════════════════════════
-//  Sidebar
-// ═══════════════════════════════════════════════════════
-
-class _Sidebar extends StatelessWidget {
-  final int selected;
-  final ValueChanged<int> onTap;
-  final String supervisorId;
-
-  const _Sidebar({required this.selected, required this.onTap, required this.supervisorId});
+  // ═══════════════════════════════════════════════════════
+  //  Sidebar — كل شي ديناميكي
+  // ═══════════════════════════════════════════════════════
 
   static const _items = [
     (Icons.dashboard_rounded, 'Dashboard'),
@@ -62,8 +80,7 @@ class _Sidebar extends StatelessWidget {
     (Icons.description_rounded, 'Excuses'),
   ];
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildSidebar() {
     return Container(
       width: 260,
       decoration: BoxDecoration(
@@ -74,9 +91,12 @@ class _Sidebar extends StatelessWidget {
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 30, offset: const Offset(4, 0))],
       ),
       child: Stack(children: [
-        // Decorative orbs
-        Positioned(top: -50, right: -50, child: _orb(180, DS.primary500.withOpacity(0.04))),
-        Positioned(bottom: 40, left: -40, child: _orb(140, DS.accentTeal.withOpacity(0.03))),
+        Positioned(top: -50, right: -50,
+          child: Container(width: 180, height: 180,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: DS.primary500.withOpacity(0.04)))),
+        Positioned(bottom: 40, left: -40,
+          child: Container(width: 140, height: 140,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: DS.accentTeal.withOpacity(0.03)))),
 
         Column(children: [
           // Logo
@@ -85,34 +105,30 @@ class _Sidebar extends StatelessWidget {
             child: Row(children: [
               Image.asset('assets/logos/logo_icon.png', width: 34, height: 34),
               const SizedBox(width: 10),
-              Expanded(
-                child: Image.asset('assets/logos/logo_full_dark.png', height: 22, fit: BoxFit.contain, alignment: Alignment.centerLeft),
-              ),
+              Expanded(child: Image.asset('assets/logos/logo_full_dark.png',
+                height: 22, fit: BoxFit.contain, alignment: Alignment.centerLeft)),
             ]),
           ),
           const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Divider(color: Colors.white.withOpacity(0.06), height: 1),
-          ),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Divider(color: Colors.white.withOpacity(0.06), height: 1)),
           const SizedBox(height: 20),
 
           // Section label
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text('SUPERVISOR', style: TextStyle(fontSize: 10, color: DS.primary400.withOpacity(0.6), letterSpacing: 2, fontWeight: FontWeight.w600)),
-            ),
+            child: Align(alignment: Alignment.centerLeft,
+              child: Text('SUPERVISOR', style: TextStyle(fontSize: 10,
+                color: DS.primary400.withOpacity(0.6), letterSpacing: 2, fontWeight: FontWeight.w600))),
           ),
           const SizedBox(height: 12),
 
-          // Menu items
+          // Menu
           ...List.generate(_items.length, (i) => _menuItem(i, _items[i].$1, _items[i].$2)),
 
           const Spacer(),
 
-          // User card
+          // ── User Card — ديناميكي بالكامل ──
           Container(
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(14),
@@ -128,16 +144,27 @@ class _Sidebar extends StatelessWidget {
                   gradient: const LinearGradient(colors: [DS.primary500, DS.accentTeal]),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Center(child: Text('DH', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700))),
+                child: Center(child: Text(
+                  _initials,  // ← ديناميكي
+                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+                )),
               ),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Dr. Hessah', style: TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600)),
-                Text('Engineering', style: TextStyle(fontSize: 11, color: DS.primary300.withOpacity(0.6))),
+                Text(
+                  widget.supervisorName,  // ← ديناميكي
+                  style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  widget.department,  // ← ديناميكي
+                  style: TextStyle(fontSize: 11, color: DS.primary300.withOpacity(0.6)),
+                ),
               ])),
               IconButton(
                 icon: Icon(Icons.logout_rounded, size: 18, color: Colors.white.withOpacity(0.3)),
-                onPressed: () => Navigator.of(context).pushReplacementNamed('/'),
+                onPressed: _logout,
+                tooltip: 'Sign out',
               ),
             ]),
           ),
@@ -147,15 +174,14 @@ class _Sidebar extends StatelessWidget {
   }
 
   Widget _menuItem(int i, IconData icon, String label) {
-    final active = i == selected;
+    final active = i == _idx;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+        color: Colors.transparent, borderRadius: BorderRadius.circular(10),
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
-          onTap: () => onTap(i),
+          onTap: () => setState(() => _idx = i),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -179,8 +205,4 @@ class _Sidebar extends StatelessWidget {
       ),
     );
   }
-
-  Widget _orb(double size, Color color) => Container(
-    width: size, height: size, decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-  );
 }

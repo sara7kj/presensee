@@ -54,17 +54,42 @@ class _WebLoginPageState extends State<WebLoginPage> with TickerProviderStateMix
       final uid = cred.user!.uid;
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
-      if (!userDoc.exists) { setState(() { _error = 'User not found'; _loading = false; }); return; }
+      if (!userDoc.exists) {
+        setState(() { _error = 'User not found'; _loading = false; });
+        return;
+      }
 
-      final role = userDoc.data()!['role'] as String? ?? '';
+      final userData = userDoc.data()!;
+      final role = userData['role'] as String? ?? '';
 
       if (_role == 'supervisor' && role == 'supervisor') {
+        // جيب كل بيانات السوبرفايزر من Firestore
         final supQ = await FirebaseFirestore.instance
-            .collection('Supervisors').where('userId', isEqualTo: uid).limit(1).get();
-        if (supQ.docs.isEmpty) { setState(() { _error = 'Supervisor profile not found'; _loading = false; }); return; }
+            .collection('Supervisors')
+            .where('userId', isEqualTo: uid)
+            .limit(1)
+            .get();
+
+        if (supQ.docs.isEmpty) {
+          setState(() { _error = 'Supervisor profile not found'; _loading = false; });
+          return;
+        }
+
+        final supData = supQ.docs.first.data();
+        final supervisorId = supQ.docs.first.id;
+
         if (!mounted) return;
+
+        // نمرر كل البيانات للداشبورد
         Navigator.pushReplacement(context,
-          MaterialPageRoute(builder: (_) => SupervisorShell(supervisorId: supQ.docs.first.id)));
+          MaterialPageRoute(builder: (_) => SupervisorShell(
+            supervisorId: supervisorId,
+            supervisorName: supData['name']?.toString() ?? userData['username']?.toString() ?? 'Supervisor',
+            supervisorEmail: supData['email']?.toString() ?? cred.user!.email ?? '',
+            department: supData['department']?.toString() ?? '',
+          )),
+        );
+
       } else if (_role == 'admin' && role == 'admin') {
         setState(() { _error = 'Admin dashboard coming soon'; _loading = false; });
       } else {
@@ -96,11 +121,8 @@ class _WebLoginPageState extends State<WebLoginPage> with TickerProviderStateMix
           ),
         ),
         child: Stack(children: [
-          // Grid pattern overlay
           CustomPaint(size: sz, painter: _GridPainter()),
-          // Animated orbs
           ..._orbs(sz),
-          // Content
           Center(child: FadeTransition(opacity: _fade, child: SingleChildScrollView(
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               const SizedBox(height: 40),
@@ -132,13 +154,9 @@ class _WebLoginPageState extends State<WebLoginPage> with TickerProviderStateMix
           bottom: bottom != null ? bottom + math.cos(t) * 25 : null,
           left: left != null ? left + math.sin(t) * 20 : null,
           right: right != null ? right + math.cos(t) * 15 : null,
-          child: Container(
-            width: size, height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(colors: [color.withOpacity(opacity), color.withOpacity(0)]),
-            ),
-          ),
+          child: Container(width: size, height: size,
+            decoration: BoxDecoration(shape: BoxShape.circle,
+              gradient: RadialGradient(colors: [color.withOpacity(opacity), color.withOpacity(0)]))),
         );
       },
     );
@@ -148,8 +166,7 @@ class _WebLoginPageState extends State<WebLoginPage> with TickerProviderStateMix
     Container(
       width: 80, height: 80,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(22),
+        color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
         boxShadow: [BoxShadow(color: DS.primary500.withOpacity(0.2), blurRadius: 40, spreadRadius: 8)],
       ),
@@ -163,10 +180,8 @@ class _WebLoginPageState extends State<WebLoginPage> with TickerProviderStateMix
   Widget _card() => Container(
     width: 420, padding: const EdgeInsets.all(32),
     decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft, end: Alignment.bottomRight,
-        colors: [Colors.white.withOpacity(0.07), Colors.white.withOpacity(0.03)],
-      ),
+      gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+        colors: [Colors.white.withOpacity(0.07), Colors.white.withOpacity(0.03)]),
       borderRadius: BorderRadius.circular(20),
       border: Border.all(color: Colors.white.withOpacity(0.08)),
       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 50, offset: const Offset(0, 20))],
@@ -176,8 +191,6 @@ class _WebLoginPageState extends State<WebLoginPage> with TickerProviderStateMix
       const SizedBox(height: 4),
       Text('Sign in to your management portal', style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.45))),
       const SizedBox(height: 28),
-
-      // Role toggle
       Container(
         padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
@@ -187,55 +200,36 @@ class _WebLoginPageState extends State<WebLoginPage> with TickerProviderStateMix
         ]),
       ),
       const SizedBox(height: 24),
-
-      _lbl(_role == 'supervisor' ? 'Email' : 'Admin Email'),
-      const SizedBox(height: 6),
+      _lbl('Email'), const SizedBox(height: 6),
       _input(_emailCtrl, 'Enter your email', Icons.email_outlined, false, null),
       const SizedBox(height: 18),
-
-      _lbl('Password'),
-      const SizedBox(height: 6),
+      _lbl('Password'), const SizedBox(height: 6),
       _input(_passCtrl, 'Enter your password', Icons.lock_outline_rounded, _obscure,
-        IconButton(
-          icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-            size: 18, color: Colors.white.withOpacity(0.3)),
-          onPressed: () => setState(() => _obscure = !_obscure),
-        ),
-      ),
-
+        IconButton(icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+          size: 18, color: Colors.white.withOpacity(0.3)),
+          onPressed: () => setState(() => _obscure = !_obscure))),
       if (_error != null) ...[
         const SizedBox(height: 14),
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: DS.error.withOpacity(0.12), borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: DS.error.withOpacity(0.2)),
-          ),
+        Container(padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: DS.error.withOpacity(0.12), borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: DS.error.withOpacity(0.2))),
           child: Row(children: [
             const Icon(Icons.error_outline, size: 16, color: DS.accentCoral),
             const SizedBox(width: 8),
             Expanded(child: Text(_error!, style: const TextStyle(fontSize: 12, color: DS.accentCoral))),
-          ]),
-        ),
+          ])),
       ],
-
       const SizedBox(height: 28),
-
-      SizedBox(
-        width: double.infinity, height: 50,
+      SizedBox(width: double.infinity, height: 50,
         child: ElevatedButton(
           onPressed: _loading ? null : _login,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: DS.primary500, foregroundColor: Colors.white,
+          style: ElevatedButton.styleFrom(backgroundColor: DS.primary500, foregroundColor: Colors.white,
             disabledBackgroundColor: DS.primary500.withOpacity(0.4),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            elevation: 0,
-          ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
           child: _loading
             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-            : const Text('Sign In', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 0.3)),
-        ),
-      ),
+            : const Text('Sign In', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        )),
       const SizedBox(height: 16),
       Center(child: Text('PresenSee Management v2.0', style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.2)))),
     ]),
@@ -251,8 +245,7 @@ class _WebLoginPageState extends State<WebLoginPage> with TickerProviderStateMix
         decoration: BoxDecoration(
           color: sel ? DS.primary500.withOpacity(0.25) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: sel ? DS.primary400.withOpacity(0.4) : Colors.transparent),
-        ),
+          border: Border.all(color: sel ? DS.primary400.withOpacity(0.4) : Colors.transparent)),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(icon, size: 16, color: sel ? Colors.white : Colors.white.withOpacity(0.3)),
           const SizedBox(width: 6),
@@ -267,22 +260,14 @@ class _WebLoginPageState extends State<WebLoginPage> with TickerProviderStateMix
 
   Widget _input(TextEditingController ctrl, String hint, IconData icon, bool obs, Widget? suf) {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withOpacity(0.07)),
-      ),
-      child: TextField(
-        controller: ctrl, obscureText: obs,
-        style: const TextStyle(fontSize: 14, color: Colors.white),
-        cursorColor: DS.primary300,
-        decoration: InputDecoration(
-          hintText: hint, hintStyle: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.2)),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withOpacity(0.07))),
+      child: TextField(controller: ctrl, obscureText: obs,
+        style: const TextStyle(fontSize: 14, color: Colors.white), cursorColor: DS.primary300,
+        decoration: InputDecoration(hintText: hint, hintStyle: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.2)),
           prefixIcon: Icon(icon, size: 18, color: Colors.white.withOpacity(0.3)),
           suffixIcon: suf, border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        ),
-      ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14))),
     );
   }
 }
