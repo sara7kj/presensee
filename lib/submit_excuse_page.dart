@@ -1,5 +1,8 @@
+import 'dart:io'; // ضروري جداً للتعامل مع الملفات
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart'; // نحتاج هذه المكتبة لرفع الملفات
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // ضروري للتعامل مع قاعدة البيانات
+import 'package:file_picker/file_picker.dart';
 import 'theme.dart';
 
 class SubmitExcusePage extends StatefulWidget {
@@ -13,6 +16,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage> {
   final _reasonController = TextEditingController();
   DateTime? _selectedDate;
   String? _fileName;
+  FilePickerResult? _pickerResult; // تم الاحتفاظ بتعريف واحد فقط
 
   // دالة لاختيار التاريخ
   Future<void> _pickDate() async {
@@ -33,27 +37,69 @@ class _SubmitExcusePageState extends State<SubmitExcusePage> {
     );
 
     if (result != null) {
-      setState(() => _fileName = result.files.first.name);
+      setState(() {
+        _pickerResult = result;
+        _fileName = result.files.first.name;
+      });
     }
   }
 
-  void _submit() {
+  void _submit() async {
+    // التحقق من تعبئة كافة الحقول
     if (_selectedDate == null ||
         _reasonController.text.isEmpty ||
-        _fileName == null) {
+        _pickerResult == null) {
       SnackHelper.error(context, 'Please fill all fields and upload a file');
       return;
     }
 
-    // هنا نضع كود الرفع للسيرفر لاحقاً
-    JadeerDialog(
-      title: 'Success',
-      primaryLabel: 'Back to Home',
-      content:
-          const Text('Your excuse has been submitted and is under review.'),
-      primaryResult: true,
-    ).show(
-        context); // ملاحظة: تأكد من إضافة دالة show في كلاس JadeerDialog أو استدعاء showDialog
+    try {
+      // 1. رفع الملف إلى Firebase Storage
+      // ننشئ اسماً فريداً للملف باستخدام الوقت لضمان عدم تكرار الأسماء
+      /*String storageFileName =
+          DateTime.now().millisecondsSinceEpoch.toString() + "_" + _fileName!;
+      Reference ref = FirebaseStorage.instance
+          .ref()
+          .child('excuses')
+          .child(storageFileName);
+
+      // تحويل المسار النصي إلى ملف حقيقي للرفع
+      File file = File(_pickerResult!.files.first.path!);
+
+      UploadTask uploadTask = ref.putFile(file);
+      TaskSnapshot snapshot = await uploadTask;
+      String downloadUrl = await snapshot.ref.getDownloadURL();  */
+
+      // 2. حفظ البيانات في كوليكشن attendance
+      await FirebaseFirestore.instance.collection('attendance').add({
+        'uid':
+            "OBfCSGRm5iM68jRQtzm42K91JLp1", // ملاحظة: يفضل لاحقاً جلب الـ UID تلقائياً
+        'checkIn': Timestamp.fromDate(_selectedDate!),
+        'status': 'Excused',
+        'reason': _reasonController.text,
+        'attachmentUrl': " ",
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // إظهار رسالة النجاح
+      JadeerDialog(
+        title: 'Success',
+        primaryLabel: 'Back to Home',
+        content:
+            const Text('Your excuse has been submitted and is under review.'),
+        primaryResult: true,
+      ).show(context);
+
+      // مسح البيانات بعد النجاح
+      setState(() {
+        _selectedDate = null;
+        _reasonController.clear();
+        _fileName = null;
+        _pickerResult = null;
+      });
+    } catch (e) {
+      SnackHelper.error(context, 'Error: $e');
+    }
   }
 
   @override
@@ -108,7 +154,6 @@ class _SubmitExcusePageState extends State<SubmitExcusePage> {
     );
   }
 
-  // مكوّن عنوان القسم
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
@@ -116,7 +161,6 @@ class _SubmitExcusePageState extends State<SubmitExcusePage> {
     );
   }
 
-  // مكوّن زر الاختيار (للتاريخ والملف)
   Widget _buildPickerTile({
     required String label,
     required IconData icon,
