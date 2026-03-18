@@ -13,21 +13,38 @@ class AttendanceHistoryPage extends StatefulWidget {
 class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
   String selectedFilter = 'All';
 
-  // تحديد الـ Status من وقت الدخول
+  // تحديد الـ Status بدقة (معدل ليقرأ من Firebase أولاً)
   String _getStatus(Map<String, dynamic> data) {
-    if (data['checkOut'] == null) return 'Present';
-    return data['status'] ?? 'Present';
+    // التحقق من وجود حالة مسجلة (مثل Excused أو Present)
+    if (data['status'] != null && data['status'] != '') {
+      String status = data['status'];
+      // معالجة حالة 'completed' لتعامل كـ 'Present' برمجياً
+      if (status.toLowerCase() == 'completed') return 'Present';
+      return status;
+    }
+    // إذا لم توجد حالة وكان لم يسجل خروج بعد
+    return 'Present';
   }
 
-  // تنسيق التاريخ
   String _formatDate(Timestamp ts) {
     final d = ts.toDate();
-    const months = ['Jan','Feb','Mar','Apr','May','Jun',
-                    'Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
 
-  // تنسيق الوقت
   String _formatTime(Timestamp? ts) {
     if (ts == null) return '-';
     final d = ts.toDate();
@@ -42,25 +59,19 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
     final uid = FirebaseAuth.instance.currentUser!.uid;
 
     return ThemedScaffold(
-      appBar: const CustomHeader(
-        title: 'Attendance History',
-        showBack: true,
-      ),
+      appBar: const CustomHeader(title: 'Attendance History', showBack: true),
       body: Column(
         children: [
           const SizedBox(height: DS.spaceLG),
           _buildFilterSection(),
           const SizedBox(height: DS.spaceMD),
-
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              // جلب بيانات الطالب من Firebase مرتبة بالتاريخ
               stream: FirebaseFirestore.instance
                   .collection('attendance')
                   .where('uid', isEqualTo: uid)
                   .orderBy('checkIn', descending: true)
                   .snapshots(),
-
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -74,7 +85,7 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                   );
                 }
 
-                // تحويل البيانات
+                // تحويل البيانات وتطبيق منطق الـ Status الجديد
                 var records = snapshot.data!.docs.map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   return {
@@ -128,14 +139,9 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
               selected: isSelected,
               onSelected: (_) => setState(() => selectedFilter = filter),
               selectedColor: DS.primary500,
-              backgroundColor:
-                  Theme.of(context).brightness == Brightness.dark
-                      ? DS.darkSurface
-                      : Colors.white,
               labelStyle: TextStyle(
                 color: isSelected ? Colors.white : DS.neutral500,
-                fontWeight:
-                    isSelected ? FontWeight.bold : FontWeight.normal,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           );
@@ -156,22 +162,18 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item['date'],
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
+                  Text(item['date'],
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       const Icon(Icons.access_time,
                           size: 13, color: DS.neutral400),
                       const SizedBox(width: 4),
-                      Text(
-                        item['time'],
-                        style: const TextStyle(
-                            fontSize: 12, color: DS.neutral500),
-                      ),
+                      Text(item['time'],
+                          style: const TextStyle(
+                              fontSize: 12, color: DS.neutral500)),
                     ],
                   ),
                 ],
@@ -186,11 +188,16 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
 
   Widget _getStatusBadge(String status) {
     switch (status) {
-      case 'Present': return StatusBadge.present();
-      case 'Absent':  return StatusBadge.absent();
-      case 'Late':    return StatusBadge.late();
-      case 'Excused': return StatusBadge.excused();
-      default:        return const SizedBox.shrink();
+      case 'Present':
+        return StatusBadge.present();
+      case 'Absent':
+        return StatusBadge.absent();
+      case 'Late':
+        return StatusBadge.late();
+      case 'Excused':
+        return StatusBadge.excused();
+      default:
+        return const SizedBox.shrink();
     }
   }
 }
