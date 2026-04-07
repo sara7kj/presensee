@@ -23,6 +23,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // Timer
   Timer? _timer;
   Duration _elapsed = Duration.zero;
+  const targetDuration = Duration(hours: 6); // الوقت المطلوب
+  bool _notified = false; // عشان ما يتكرر الإشعار  
 
   // Animation
   late AnimationController _pulseController;
@@ -93,6 +95,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         setState(() {
           _elapsed = DateTime.now().difference(_checkInTime!);
         });
+        // اذا وصل 6 ساعات وما سوا checkout
+        if (_elapsed >= targetDuration && !_notified && _isCheckedIn) {
+         _notified = true ;
+         _showMsg("انتهى وقت التدريب الرجاء تسجيل الخروج")
+        }
       }
     });
   }
