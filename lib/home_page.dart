@@ -4,8 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'attendance_screen.dart';
 import 'login_page.dart';
-import 'submit_excuse_page.dart';       // اسم ملف الـ Excuse عندك
-import 'attendance_history_page.dart';      // اسم ملف الـ History عندك
+import 'submit_excuse_page.dart';
+import 'attendance_history_page.dart';
+import 'theme.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -27,13 +28,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // Animation
   late AnimationController _pulseController;
   late Animation<double> _pulseAnim;
-
-  // Brand Colors
-  static const Color kNavy      = Color(0xFF1B2B4B);
-  static const Color kBlue      = Color(0xFF2D5BE3);
-  static const Color kLightBlue = Color(0xFF5B8AF0);
-  static const Color kBg        = Color(0xFFF5F7FF);
-  static const Color kGrey      = Color(0xFF8A94A6);
 
   @override
   void initState() {
@@ -114,9 +108,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: kNavy,
+        backgroundColor: DS.primary900,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DS.radiusLG)),
       ),
     );
   }
@@ -137,170 +132,202 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  // ── UI ─────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════
+  //  UI
+  // ══════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final name = user?.email?.split('@').first ?? "Student";
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: kBg,
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: kBlue),
-              )
-            : Column(
-                children: [
-                  // ── Top Bar ──────────────────────────────
-                  _buildTopBar(name),
+    return ThemedScaffold(
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: DS.primary500),
+            )
+          : Column(
+              children: [
+                // ── Header ──────────────────────────────────
+                _buildHeader(name, isDark),
 
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 32),
+                // ── Body ────────────────────────────────────
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: DS.spaceLG),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: DS.spaceXL),
 
-                          // ── Timer Circle ─────────────────
-                          _buildTimerCircle(),
+                        // ── Timer Circle ─────────────────
+                        _buildTimerCircle(isDark),
 
-                          const SizedBox(height: 40),
+                        const SizedBox(height: DS.spaceXL),
 
-                          // ── Action Buttons ───────────────
-                          _buildActionButtons(),
+                        // ── Action Buttons ───────────────
+                        _buildActionSection(isDark),
 
-                          const SizedBox(height: 40),
-                        ],
-                      ),
+                        const SizedBox(height: DS.spaceXL),
+                      ],
                     ),
                   ),
-                ],
-              ),
-      ),
+                ),
+              ],
+            ),
     );
   }
 
-  // ── Top Bar ────────────────────────────────────────────────
-  Widget _buildTopBar(String name) {
+  // ── Header (CustomHeader style with logo) ──────────────────
+  Widget _buildHeader(String name, bool isDark) {
+    final Color gradStart = isDark ? DS.darkSurface : DS.primary700;
+    final Color gradEnd = isDark ? DS.primary900 : DS.primary500;
+    final Color bubbleColor =
+        Colors.white.withOpacity(isDark ? 0.03 : 0.06);
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
-      decoration: const BoxDecoration(
-        color: kNavy,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
+      width: double.infinity,
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top + DS.spaceMD,
+        bottom: DS.spaceLG,
+        left: DS.spaceLG,
+        right: DS.spaceLG,
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [gradStart, gradEnd],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(DS.spaceXL),
+          bottomRight: Radius.circular(DS.spaceXL),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: DS.primary900.withOpacity(isDark ? 0.5 : 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Stack(
         children: [
-          // Logo + Welcome
+          // ── Decorative bubbles ──
+          Positioned(
+            top: -60,
+            right: -40,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                  shape: BoxShape.circle, color: bubbleColor),
+            ),
+          ),
+          Positioned(
+            bottom: -30,
+            left: -20,
+            child: Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                  shape: BoxShape.circle, color: bubbleColor),
+            ),
+          ),
+
+          // ── Content ──
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: kBlue,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.how_to_reg_rounded,
-                      color: Colors.white,
-                      size: 16,
-                    ),
+                  // Logo
+                  Image.asset(
+                    'assets/logos/logo_full_dark.png',
+                    height: 32,
+                    fit: BoxFit.contain,
                   ),
-                  const SizedBox(width: 8),
-                  RichText(
-                    text: const TextSpan(
-                      style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5),
-                      children: [
-                        TextSpan(
-                            text: "Presen",
-                            style: TextStyle(color: Colors.white)),
-                        TextSpan(
-                            text: "See",
-                            style: TextStyle(color: kLightBlue)),
-                      ],
-                    ),
+
+                  // Status + Logout
+                  Row(
+                    children: [
+                      // Status chip
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: _isCheckedIn
+                              ? DS.success.withOpacity(0.2)
+                              : Colors.white.withOpacity(0.1),
+                          borderRadius:
+                              BorderRadius.circular(DS.radiusFull),
+                          border: Border.all(
+                            color: _isCheckedIn
+                                ? DS.success.withOpacity(0.5)
+                                : Colors.white.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: _isCheckedIn
+                                    ? DS.success
+                                    : DS.neutral400,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              _isCheckedIn ? "Active" : "Offline",
+                              style: TextStyle(
+                                color: _isCheckedIn
+                                    ? DS.success
+                                    : DS.neutral400,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: DS.spaceSM),
+
+                      // Logout button
+                      GestureDetector(
+                        onTap: _signOut,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius:
+                                BorderRadius.circular(DS.radiusMD),
+                          ),
+                          child: const Icon(
+                            Icons.logout_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+
+              const SizedBox(height: DS.spaceMD),
+
+              // Welcome text
               Text(
                 "Welcome, $name 👋",
-                style: const TextStyle(
-                  color: kLightBlue,
-                  fontSize: 14,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 15,
                   fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-
-          // Status + Logout
-          Row(
-            children: [
-              // Status chip
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _isCheckedIn
-                      ? Colors.green.withOpacity(0.2)
-                      : Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: _isCheckedIn
-                        ? Colors.green.shade300
-                        : Colors.white.withOpacity(0.2),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: _isCheckedIn ? Colors.green : kGrey,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      _isCheckedIn ? "Active" : "Offline",
-                      style: TextStyle(
-                        color:
-                            _isCheckedIn ? Colors.green.shade300 : kGrey,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Logout
-              GestureDetector(
-                onTap: _signOut,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.logout_rounded,
-                    color: Colors.white,
-                    size: 18,
-                  ),
                 ),
               ),
             ],
@@ -311,7 +338,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   // ── Timer Circle ───────────────────────────────────────────
-  Widget _buildTimerCircle() {
+  Widget _buildTimerCircle(bool isDark) {
     return ScaleTransition(
       scale: _isCheckedIn ? _pulseAnim : const AlwaysStoppedAnimation(1.0),
       child: Container(
@@ -319,10 +346,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         height: 220,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.white,
+          color: isDark ? DS.darkCard : Colors.white,
           boxShadow: [
             BoxShadow(
-              color: (_isCheckedIn ? kBlue : kGrey).withOpacity(0.15),
+              color: (_isCheckedIn ? DS.primary500 : DS.neutral400)
+                  .withOpacity(0.15),
               blurRadius: 40,
               spreadRadius: 10,
             ),
@@ -340,9 +368,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     ? (_elapsed.inSeconds % 3600) / 3600
                     : 0,
                 strokeWidth: 10,
-                backgroundColor: kBg,
+                backgroundColor:
+                    isDark ? DS.darkBg : DS.neutral100,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  _isCheckedIn ? kBlue : kGrey.withOpacity(0.3),
+                  _isCheckedIn
+                      ? DS.primary500
+                      : DS.neutral300,
                 ),
               ),
             ),
@@ -357,16 +388,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
-                    color: _isCheckedIn ? kNavy : kGrey,
+                    color: _isCheckedIn
+                        ? (isDark ? Colors.white : DS.primary900)
+                        : DS.neutral400,
                     letterSpacing: 1,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: DS.spaceXS),
                 Text(
                   _isCheckedIn ? "Time elapsed" : "Not checked in",
                   style: TextStyle(
                     fontSize: 11,
-                    color: kGrey,
+                    color: DS.neutral500,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -378,138 +411,207 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  // ── Action Buttons ─────────────────────────────────────────
-  Widget _buildActionButtons() {
+  // ── Action Section (new layout) ────────────────────────────
+  Widget _buildActionSection(bool isDark) {
     return Column(
       children: [
-        // Check In / Check Out
-        if (!_isCheckedIn)
-          _buildMainButton(
-            label: "Check In",
-            icon: Icons.login_rounded,
-            color: kBlue,
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const AttendanceScreen(isCheckIn: true),
-                ),
-              );
-              _checkTodayStatus();
-            },
-          ),
+        // ── Main Action: Check In / Check Out ──
+        _buildMainAction(isDark),
 
-        if (_isCheckedIn)
-          _buildMainButton(
-            label: "Check Out",
-            icon: Icons.logout_rounded,
-            color: const Color(0xFFE53935),
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AttendanceScreen(
-                    isCheckIn: false,
-                    checkInDocId: _checkInDocId,
-                  ),
-                ),
-              );
-              _checkTodayStatus();
-            },
-          ),
+        const SizedBox(height: DS.spaceMD),
 
-        const SizedBox(height: 16),
-
-        // Secondary Buttons Row
+        // ── Quick Actions Row: Excuse + History ──
         Row(
-  children: [
-    Expanded(
-      child: _buildSecondaryButton(
-        label: "Excuse",
-        icon: Icons.description_outlined,
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const SubmitExcusePage()),
-          );
-        },
-      ),
-    ),
-    const SizedBox(width: 12),
-    Expanded(
-      child: _buildSecondaryButton(
-        label: "History",
-        icon: Icons.history_rounded,
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AttendanceHistoryPage()),
-          );
-        },
-      ),
-    ),
-  ],
-),
+          children: [
+            Expanded(
+              child: _buildQuickActionCard(
+                icon: Icons.description_outlined,
+                label: "Excuse",
+                subtitle: "Submit request",
+                color: DS.accentAmber,
+                isDark: isDark,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const SubmitExcusePage()),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: DS.spaceMD),
+            Expanded(
+              child: _buildQuickActionCard(
+                icon: Icons.history_rounded,
+                label: "History",
+                subtitle: "View records",
+                color: DS.accentViolet,
+                isDark: isDark,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AttendanceHistoryPage()),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
 
-  Widget _buildMainButton({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 58,
-      child: ElevatedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon, size: 20),
-        label: Text(
-          label,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.3,
+  Widget _buildMainAction(bool isDark) {
+    final isCheckIn = !_isCheckedIn;
+    final actionColor = isCheckIn ? DS.primary500 : DS.error;
+    final actionIcon =
+        isCheckIn ? Icons.login_rounded : Icons.logout_rounded;
+    final actionLabel = isCheckIn ? "Check In" : "Check Out";
+    final actionSubtitle = isCheckIn
+        ? "Verify identity & mark attendance"
+        : "End your session";
+
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AttendanceScreen(
+              isCheckIn: isCheckIn,
+              checkInDocId: isCheckIn ? null : _checkInDocId,
+            ),
           ),
+        );
+        _checkTodayStatus();
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(DS.spaceLG),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [actionColor, actionColor.withOpacity(0.85)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(DS.radiusXL),
+          boxShadow: [
+            BoxShadow(
+              color: actionColor.withOpacity(0.3),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+        child: Row(
+          children: [
+            // Icon circle
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(DS.radiusLG),
+              ),
+              child: Icon(actionIcon, color: Colors.white, size: 26),
+            ),
+            const SizedBox(width: DS.spaceMD),
+            // Text
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    actionLabel,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    actionSubtitle,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.75),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Arrow
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.arrow_forward_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildSecondaryButton({
-    required String label,
+  Widget _buildQuickActionCard({
     required IconData icon,
+    required String label,
+    required String subtitle,
+    required Color color,
+    required bool isDark,
     required VoidCallback onTap,
   }) {
-    return SizedBox(
-      height: 54,
-      child: OutlinedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon, size: 18, color: kNavy),
-        label: Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: kNavy,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(DS.spaceMD),
+        decoration: BoxDecoration(
+          color: isDark ? DS.darkCard : Colors.white,
+          borderRadius: BorderRadius.circular(DS.radiusXL),
+          border: Border.all(
+            color: isDark ? DS.neutral700 : DS.neutral200,
           ),
+          boxShadow: isDark ? null : DS.shadowSM,
         ),
-        style: OutlinedButton.styleFrom(
-          side: BorderSide(color: Colors.grey.shade300, width: 1.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          backgroundColor: Colors.white,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Icon container
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(DS.radiusLG),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(height: DS.spaceMD),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : DS.neutral800,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: DS.neutral500,
+              ),
+            ),
+          ],
         ),
       ),
     );
