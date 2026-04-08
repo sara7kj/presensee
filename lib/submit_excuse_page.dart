@@ -135,12 +135,8 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Info Card ──
               _buildInfoCard(isDark),
-
               const SizedBox(height: DS.spaceLG),
-
-              // ── Step 1: Date ──
               _buildStepHeader(
                 number: '1',
                 title: 'Absence Date',
@@ -149,10 +145,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
               ),
               const SizedBox(height: DS.spaceSM),
               _buildDatePicker(isDark),
-
               const SizedBox(height: DS.spaceLG),
-
-              // ── Step 2: Reason ──
               _buildStepHeader(
                 number: '2',
                 title: 'Reason for Absence',
@@ -161,10 +154,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
               ),
               const SizedBox(height: DS.spaceSM),
               _buildReasonField(isDark),
-
               const SizedBox(height: DS.spaceLG),
-
-              // ── Step 3: Document ──
               _buildStepHeader(
                 number: '3',
                 title: 'Supporting Document',
@@ -173,25 +163,19 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
               ),
               const SizedBox(height: DS.spaceSM),
               _buildFileUpload(isDark),
-
               const SizedBox(height: DS.spaceXL),
-
-              // ── Submit Button ──
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed:
-                      _isSubmitting ? null : _submit,
+                  onPressed: _isSubmitting ? null : _submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: DS.primary500,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor:
-                        DS.primary500.withOpacity(0.5),
+                    disabledBackgroundColor: DS.primary500.withOpacity(0.5),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(DS.radiusXL),
+                      borderRadius: BorderRadius.circular(DS.radiusXL),
                     ),
                   ),
                   child: _isSubmitting
@@ -219,7 +203,6 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
                         ),
                 ),
               ),
-
               const SizedBox(height: DS.spaceLG),
             ],
           ),
@@ -228,7 +211,6 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
     );
   }
 
-  // ── Info Card ──
   Widget _buildInfoCard(bool isDark) {
     return Container(
       width: double.infinity,
@@ -238,9 +220,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
             ? DS.accentAmber.withOpacity(0.1)
             : DS.accentAmber.withOpacity(0.06),
         borderRadius: BorderRadius.circular(DS.radiusXL),
-        border: Border.all(
-          color: DS.accentAmber.withOpacity(0.2),
-        ),
+        border: Border.all(color: DS.accentAmber.withOpacity(0.2)),
       ),
       child: Row(
         children: [
@@ -273,7 +253,6 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
     );
   }
 
-  // ── Step Header ──
   Widget _buildStepHeader({
     required String number,
     required String title,
@@ -314,10 +293,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
             ),
             Text(
               subtitle,
-              style: const TextStyle(
-                fontSize: 12,
-                color: DS.neutral500,
-              ),
+              style: const TextStyle(fontSize: 12, color: DS.neutral500),
             ),
           ],
         ),
@@ -325,10 +301,8 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
     );
   }
 
-  // ── Date Picker ──
   Widget _buildDatePicker(bool isDark) {
     final hasDate = _selectedDate != null;
-
     return GestureDetector(
       onTap: _pickDate,
       child: Container(
@@ -372,10 +346,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
                 children: [
                   Text(
                     hasDate ? 'Selected Date' : 'Select Date',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: DS.neutral500,
-                    ),
+                    style: TextStyle(fontSize: 12, color: DS.neutral500),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -406,7 +377,6 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
     );
   }
 
-  // ── Reason Field ──
   Widget _buildReasonField(bool isDark) {
     return Container(
       decoration: BoxDecoration(
@@ -438,10 +408,8 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
     );
   }
 
-  // ── File Upload ──
   Widget _buildFileUpload(bool isDark) {
     final hasFile = _fileName != null;
-
     return GestureDetector(
       onTap: _pickFile,
       child: Container(
@@ -494,10 +462,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
         const SizedBox(height: DS.spaceXS),
         Text(
           'PDF, JPG, or PNG (max 10MB)',
-          style: TextStyle(
-            fontSize: 12,
-            color: DS.neutral500,
-          ),
+          style: TextStyle(fontSize: 12, color: DS.neutral500),
         ),
       ],
     );
@@ -536,10 +501,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
               const SizedBox(height: 2),
               const Text(
                 'Tap to change file',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: DS.neutral500,
-                ),
+                style: TextStyle(fontSize: 12, color: DS.neutral500),
               ),
             ],
           ),

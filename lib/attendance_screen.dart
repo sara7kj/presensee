@@ -162,6 +162,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
           'status': 'completed',
         });
 
+
         _showMsg("Check-out recorded successfully ✅");
       }
 

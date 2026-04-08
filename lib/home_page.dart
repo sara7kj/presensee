@@ -24,6 +24,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // Timer
   Timer? _timer;
   Duration _elapsed = Duration.zero;
+  static const targetDuration = Duration(hours: 6); // الوقت المطلوب
+  bool _notified = false; // عشان ما يتكرر الإشعار
 
   // Animation
   late AnimationController _pulseController;
@@ -65,12 +67,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         final data = query.docs.first.data();
         if (data['checkIn'] is Timestamp) {
           _checkInTime = (data['checkIn'] as Timestamp).toDate();
+          _notified = false;
           _startTimer();
         }
       } else {
         _isCheckedIn = false;
         _checkInDocId = null;
         _checkInTime = null;
+        _notified = false;
         _stopTimer();
       }
     } catch (e) {
@@ -87,6 +91,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         setState(() {
           _elapsed = DateTime.now().difference(_checkInTime!);
         });
+        // اذا وصل 6 ساعات وما سوا checkout
+        if (_elapsed >= targetDuration && !_notified && _isCheckedIn) {
+          _notified = true;
+          _showMsg("انتهى وقت التدريب، الرجاء تسجيل الخروج ⏰");
+        }
       }
     });
   }
@@ -148,10 +157,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             )
           : Column(
               children: [
-                // ── Header ──────────────────────────────────
                 _buildHeader(name, isDark),
-
-                // ── Body ────────────────────────────────────
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
@@ -159,15 +165,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     child: Column(
                       children: [
                         const SizedBox(height: DS.spaceXL),
-
-                        // ── Timer Circle ─────────────────
                         _buildTimerCircle(isDark),
-
                         const SizedBox(height: DS.spaceXL),
-
-                        // ── Action Buttons ───────────────
                         _buildActionSection(isDark),
-
                         const SizedBox(height: DS.spaceXL),
                       ],
                     ),
@@ -213,46 +213,35 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       ),
       child: Stack(
         children: [
-          // ── Decorative bubbles ──
           Positioned(
-            top: -60,
-            right: -40,
+            top: -60, right: -40,
             child: Container(
-              width: 160,
-              height: 160,
+              width: 160, height: 160,
               decoration: BoxDecoration(
                   shape: BoxShape.circle, color: bubbleColor),
             ),
           ),
           Positioned(
-            bottom: -30,
-            left: -20,
+            bottom: -30, left: -20,
             child: Container(
-              width: 100,
-              height: 100,
+              width: 100, height: 100,
               decoration: BoxDecoration(
                   shape: BoxShape.circle, color: bubbleColor),
             ),
           ),
-
-          // ── Content ──
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Logo
                   Image.asset(
                     'assets/logos/logo_full_dark.png',
                     height: 32,
                     fit: BoxFit.contain,
                   ),
-
-                  // Status + Logout
                   Row(
                     children: [
-                      // Status chip
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 5),
@@ -272,8 +261,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Container(
-                              width: 6,
-                              height: 6,
+                              width: 6, height: 6,
                               decoration: BoxDecoration(
                                 color: _isCheckedIn
                                     ? DS.success
@@ -296,8 +284,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         ),
                       ),
                       const SizedBox(width: DS.spaceSM),
-
-                      // Logout button
                       GestureDetector(
                         onTap: _signOut,
                         child: Container(
@@ -318,10 +304,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   ),
                 ],
               ),
-
               const SizedBox(height: DS.spaceMD),
-
-              // Welcome text
               Text(
                 "Welcome, $name 👋",
                 style: TextStyle(
@@ -359,7 +342,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Outer ring
             SizedBox(
               width: 200,
               height: 200,
@@ -371,13 +353,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 backgroundColor:
                     isDark ? DS.darkBg : DS.neutral100,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  _isCheckedIn
-                      ? DS.primary500
-                      : DS.neutral300,
+                  _isCheckedIn ? DS.primary500 : DS.neutral300,
                 ),
               ),
             ),
-            // Timer text
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -415,12 +394,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Widget _buildActionSection(bool isDark) {
     return Column(
       children: [
-        // ── Main Action: Check In / Check Out ──
         _buildMainAction(isDark),
-
         const SizedBox(height: DS.spaceMD),
-
-        // ── Quick Actions Row: Excuse + History ──
         Row(
           children: [
             Expanded(
@@ -431,11 +406,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 color: DS.accentAmber,
                 isDark: isDark,
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const SubmitExcusePage()),
-                  );
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const SubmitExcusePage()));
                 },
               ),
             ),
@@ -448,11 +420,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 color: DS.accentViolet,
                 isDark: isDark,
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const AttendanceHistoryPage()),
-                  );
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const AttendanceHistoryPage()));
                 },
               ),
             ),
@@ -465,8 +434,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Widget _buildMainAction(bool isDark) {
     final isCheckIn = !_isCheckedIn;
     final actionColor = isCheckIn ? DS.primary500 : DS.error;
-    final actionIcon =
-        isCheckIn ? Icons.login_rounded : Icons.logout_rounded;
+    final actionIcon = isCheckIn ? Icons.login_rounded : Icons.logout_rounded;
     final actionLabel = isCheckIn ? "Check In" : "Check Out";
     final actionSubtitle = isCheckIn
         ? "Verify identity & mark attendance"
@@ -505,10 +473,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         ),
         child: Row(
           children: [
-            // Icon circle
             Container(
-              width: 52,
-              height: 52,
+              width: 52, height: 52,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(DS.radiusLG),
@@ -516,44 +482,32 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               child: Icon(actionIcon, color: Colors.white, size: 26),
             ),
             const SizedBox(width: DS.spaceMD),
-            // Text
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    actionLabel,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                  Text(actionLabel,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
-                  Text(
-                    actionSubtitle,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.75),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
+                  Text(actionSubtitle,
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.75),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400)),
                 ],
               ),
             ),
-            // Arrow
             Container(
-              width: 36,
-              height: 36,
+              width: 36, height: 36,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.arrow_forward_rounded,
-                color: Colors.white,
-                size: 18,
-              ),
+              child: const Icon(Icons.arrow_forward_rounded,
+                  color: Colors.white, size: 18),
             ),
           ],
         ),
@@ -577,17 +531,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           color: isDark ? DS.darkCard : Colors.white,
           borderRadius: BorderRadius.circular(DS.radiusXL),
           border: Border.all(
-            color: isDark ? DS.neutral700 : DS.neutral200,
-          ),
+              color: isDark ? DS.neutral700 : DS.neutral200),
           boxShadow: isDark ? null : DS.shadowSM,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icon container
             Container(
-              width: 44,
-              height: 44,
+              width: 44, height: 44,
               decoration: BoxDecoration(
                 color: color.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(DS.radiusLG),
@@ -595,22 +546,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               child: Icon(icon, color: color, size: 22),
             ),
             const SizedBox(height: DS.spaceMD),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : DS.neutral800,
-              ),
-            ),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : DS.neutral800)),
             const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 12,
-                color: DS.neutral500,
-              ),
-            ),
+            Text(subtitle,
+                style: TextStyle(fontSize: 12, color: DS.neutral500)),
           ],
         ),
       ),
