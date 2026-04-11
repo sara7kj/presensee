@@ -143,6 +143,38 @@ class _AttendanceScreenState extends State<AttendanceScreen>
           'status': 'present',
         });
 
+        // ═══════════════════════════════════════════════════════
+        // ✅ ربط مع AttendanceRecords عشان يظهر عند المشرف
+        // ═══════════════════════════════════════════════════════
+        final now = DateTime.now();
+        final dateStr =
+            '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+        final timeStr =
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+        final traineeQ = await _firestore
+            .collection('Trainees')
+            .where('userId', isEqualTo: uid)
+            .limit(1)
+            .get();
+
+        if (traineeQ.docs.isNotEmpty) {
+          final studentId = traineeQ.docs.first['studentId'];
+          await _firestore
+              .collection('AttendanceRecords')
+              .doc('${studentId}_$dateStr')
+              .set({
+            'recordId': '${studentId}_$dateStr',
+            'studentId': studentId,
+            'date': dateStr,
+            'status': 'present',
+            'checkInTime': timeStr,
+            'checkOutTime': '',
+            'gpsLocation': '',
+          });
+        }
+        // ═══════════════════════════════════════════════════════
+
         _showMsg("Check-in recorded successfully ✅");
       } else {
         if (widget.checkInDocId == null) {
@@ -162,6 +194,32 @@ class _AttendanceScreenState extends State<AttendanceScreen>
           'status': 'completed',
         });
 
+        // ═══════════════════════════════════════════════════════
+        // ✅ تحديث وقت الخروج في AttendanceRecords
+        // ═══════════════════════════════════════════════════════
+        final now = DateTime.now();
+        final dateStr =
+            '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+        final timeStr =
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+        final traineeQ = await _firestore
+            .collection('Trainees')
+            .where('userId', isEqualTo: uid)
+            .limit(1)
+            .get();
+
+        if (traineeQ.docs.isNotEmpty) {
+          final studentId = traineeQ.docs.first['studentId'];
+          final docRef = _firestore
+              .collection('AttendanceRecords')
+              .doc('${studentId}_$dateStr');
+          final docSnap = await docRef.get();
+          if (docSnap.exists) {
+            await docRef.update({'checkOutTime': timeStr});
+          }
+        }
+        // ═══════════════════════════════════════════════════════
 
         _showMsg("Check-out recorded successfully ✅");
       }

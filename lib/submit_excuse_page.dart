@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
@@ -87,14 +88,46 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
     setState(() => _isSubmitting = true);
 
     try {
+      // ✅ جلب الـ UID ديناميكياً
+      final uid = FirebaseAuth.instance.currentUser!.uid;
+
+      // حفظ في كولكشن attendance (للطالب)
       await FirebaseFirestore.instance.collection('attendance').add({
-        'uid': "OBfCSGRm5iM68jRQtzm42K91JLp1",
+        'uid': uid,
         'checkIn': Timestamp.fromDate(_selectedDate!),
         'status': 'Excused',
         'reason': _reasonController.text,
         'attachmentUrl': " ",
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // ═══════════════════════════════════════════════════════
+      // ✅ حفظ في كولكشن Excuses عشان يظهر عند المشرف
+      // ═══════════════════════════════════════════════════════
+      final traineeQ = await FirebaseFirestore.instance
+          .collection('Trainees')
+          .where('userId', isEqualTo: uid)
+          .limit(1)
+          .get();
+
+      if (traineeQ.docs.isNotEmpty) {
+        final t = traineeQ.docs.first.data();
+        final dateStr =
+            '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
+
+        await FirebaseFirestore.instance.collection('Excuses').add({
+          'studentId': t['studentId'],
+          'studentName': t['name'],
+          'supervisorId': t['supervisorId'],
+          'type': 'Sick Leave',
+          'startDate': dateStr,
+          'endDate': dateStr,
+          'reason': _reasonController.text,
+          'status': 'pending',
+          'fileUrl': '',
+        });
+      }
+      // ═══════════════════════════════════════════════════════
 
       JadeerDialog(
         title: 'Success',
