@@ -186,22 +186,50 @@ class _AttendanceScreenState extends State<AttendanceScreen>
           return;
         }
 
-        await _firestore
+        // ═══════════════════════════════════════════════════════
+        // ✅ 1) جيب وثيقة الـ check-in عشان نعرف وقت الدخول
+        // ═══════════════════════════════════════════════════════
+        final checkInDocRef = _firestore
             .collection('attendance')
-            .doc(widget.checkInDocId)
-            .update({
-          'checkOut': Timestamp.now(),
+            .doc(widget.checkInDocId);
+        final checkInSnap = await checkInDocRef.get();
+        final checkInData = checkInSnap.data();
+
+        if (checkInData == null || checkInData['checkIn'] == null) {
+          _showMsg("Check-in record missing ❌");
+          setState(() {
+            isLoading = false;
+            _currentStep = '';
+          });
+          return;
+        }
+
+        final checkInTime =
+            (checkInData['checkIn'] as Timestamp).toDate();
+        final checkOutTime = DateTime.now();
+
+        // ═══════════════════════════════════════════════════════
+        // ✅ 2) احسب الفرق بالساعات (مع الكسور)
+        // ═══════════════════════════════════════════════════════
+        final diff = checkOutTime.difference(checkInTime);
+        final hoursWorked = diff.inSeconds / 3600.0; // مثلاً 2.5 ساعة
+
+        // ═══════════════════════════════════════════════════════
+        // ✅ 3) حدّث وثيقة الحضور (مع تخزين الساعات)
+        // ═══════════════════════════════════════════════════════
+        await checkInDocRef.update({
+          'checkOut': Timestamp.fromDate(checkOutTime),
           'status': 'completed',
+          'hoursWorked': hoursWorked,
         });
 
         // ═══════════════════════════════════════════════════════
-        // ✅ تحديث وقت الخروج في AttendanceRecords
+        // ✅ 4) تحديث وقت الخروج في AttendanceRecords + ساعات Trainees
         // ═══════════════════════════════════════════════════════
-        final now = DateTime.now();
         final dateStr =
-            '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+            '${checkOutTime.year}-${checkOutTime.month.toString().padLeft(2, '0')}-${checkOutTime.day.toString().padLeft(2, '0')}';
         final timeStr =
-            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+            '${checkOutTime.hour.toString().padLeft(2, '0')}:${checkOutTime.minute.toString().padLeft(2, '0')}';
 
         final traineeQ = await _firestore
             .collection('Trainees')
@@ -210,18 +238,41 @@ class _AttendanceScreenState extends State<AttendanceScreen>
             .get();
 
         if (traineeQ.docs.isNotEmpty) {
-          final studentId = traineeQ.docs.first['studentId'];
+          final traineeDoc = traineeQ.docs.first;
+          final studentId = traineeDoc['studentId'];
+          final traineeData = traineeDoc.data();
+
+          // ── أ) سجّل وقت الخروج + الساعات في AttendanceRecords ──
           final docRef = _firestore
               .collection('AttendanceRecords')
               .doc('${studentId}_$dateStr');
           final docSnap = await docRef.get();
           if (docSnap.exists) {
-            await docRef.update({'checkOutTime': timeStr});
+            await docRef.update({
+              'checkOutTime': timeStr,
+              'hoursWorked': hoursWorked,
+            });
           }
+
+          // ── ب) ✅ المهم: حدّث Trainees (الساعات المنجزة + المتبقية) ──
+          final currentCompleted =
+              (traineeData['completedHours'] ?? 0).toDouble();
+          final currentRemaining =
+              (traineeData['remainingHours'] ?? 280).toDouble();
+
+          final newCompleted = currentCompleted + hoursWorked;
+          final newRemaining =
+              (currentRemaining - hoursWorked).clamp(0, double.infinity);
+
+          await traineeDoc.reference.update({
+            'completedHours': newCompleted,
+            'remainingHours': newRemaining,
+          });
         }
         // ═══════════════════════════════════════════════════════
 
-        _showMsg("Check-out recorded successfully ✅");
+        _showMsg(
+            "Check-out recorded ✅ (${hoursWorked.toStringAsFixed(2)}h added)");
       }
 
       if (mounted) Navigator.pop(context);

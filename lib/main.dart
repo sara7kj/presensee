@@ -6,12 +6,17 @@ import 'firebase_options.dart';
 import 'welcome_page.dart';
 import 'home_page.dart';
 import 'theme.dart';
+import 'notification_service.dart'; // ← ضيفي هذا السطر
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // ✅ تهيئة الإشعارات
+  await NotificationService.init();
+
   runApp(const MyApp());
 }
 

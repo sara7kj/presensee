@@ -3,7 +3,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'theme.dart';
 import 'student_details.dart';
 
-class SupervisorDashboard extends StatelessWidget {
+// ══════════════════════════════════════════════════════════════
+//  Changed: StatelessWidget → StatefulWidget
+//  so we can track which stat card is selected (_selectedFilter)
+// ══════════════════════════════════════════════════════════════
+
+class SupervisorDashboard extends StatefulWidget {
   final String supervisorId;
   final String supervisorName;
   final VoidCallback? onViewStudents;
@@ -17,15 +22,25 @@ class SupervisorDashboard extends StatelessWidget {
     this.onViewExcuses,
   });
 
+  @override
+  State<SupervisorDashboard> createState() => _SupervisorDashboardState();
+}
+
+class _SupervisorDashboardState extends State<SupervisorDashboard> {
+  // ── NEW: tracks which card is tapped ──
+  // null = no filter panel shown, 'all' / 'present' / 'absent' / 'excused'
+  String? _selectedFilter;
+
   String get _todayStr {
     final n = DateTime.now();
     return '${n.year}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
   }
 
   String get _firstName {
-    final parts = supervisorName.split(' ');
+    final parts = widget.supervisorName.split(' ');
     if (parts.length > 1 &&
-        (parts[0].toLowerCase().startsWith('dr') || parts[0].startsWith('د'))) {
+        (parts[0].toLowerCase().startsWith('dr') ||
+            parts[0].startsWith('د'))) {
       return '${parts[0]} ${parts[1]}';
     }
     return parts.first;
@@ -36,7 +51,7 @@ class SupervisorDashboard extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('Trainees')
-          .where('supervisorId', isEqualTo: supervisorId)
+          .where('supervisorId', isEqualTo: widget.supervisorId)
           .snapshots(),
       builder: (context, traineesSnap) {
         if (traineesSnap.connectionState == ConnectionState.waiting) {
@@ -55,7 +70,7 @@ class SupervisorDashboard extends StatelessWidget {
             .toList();
 
         if (studentIds.isEmpty) {
-          return _buildContent(context, trainees, total, 0, 0, 0, 0);
+          return _buildContent(context, trainees, total, 0, 0, 0, 0, {});
         }
 
         return StreamBuilder<QuerySnapshot>(
@@ -67,26 +82,40 @@ class SupervisorDashboard extends StatelessWidget {
           builder: (context, attSnap) {
             int present = 0, absent = 0, excused = 0;
 
+            // ── NEW: build a map of studentId → status ──
+            final Map<String, String> statusMap = {};
+
             if (attSnap.hasData) {
               for (var d in attSnap.data!.docs) {
                 final data = d.data() as Map<String, dynamic>?;
                 if (data == null) continue;
                 final s = data['status'] as String? ?? '';
+                final sid = data['studentId'] as String? ?? '';
                 if (s == 'present') {
                   present++;
+                  if (sid.isNotEmpty) statusMap[sid] = 'present';
                 } else if (s == 'absent') {
                   absent++;
+                  if (sid.isNotEmpty) statusMap[sid] = 'absent';
                 } else {
                   excused++;
+                  if (sid.isNotEmpty) statusMap[sid] = 'excused';
                 }
               }
               final accounted = present + absent + excused;
               if (accounted < total) absent += total - accounted;
             }
 
+            // Mark students without records as absent
+            for (final sid in studentIds) {
+              if (!statusMap.containsKey(sid)) {
+                statusMap[sid] = 'absent';
+              }
+            }
+
             final perf = total > 0 ? (present / total * 100).round() : 0;
             return _buildContent(
-                context, trainees, total, present, absent, excused, perf);
+                context, trainees, total, present, absent, excused, perf, statusMap);
           },
         );
       },
@@ -101,6 +130,7 @@ class SupervisorDashboard extends StatelessWidget {
     int absent,
     int excused,
     int perf,
+    Map<String, String> statusMap, // ← NEW parameter
   ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(28),
@@ -147,18 +177,29 @@ class SupervisorDashboard extends StatelessWidget {
           ),
           const SizedBox(height: 28),
 
-          // ── Stat Cards ──
+          // ══════════════════════════════════════════════
+          //  CHANGED: Stat Cards — now clickable
+          // ══════════════════════════════════════════════
           Row(children: [
             _statCard('Total\nStudents', '$total', Icons.people_rounded,
-                DS.primary500, DS.primary50),
+                DS.primary500, DS.primary50, 'all'),
             _statCard('Present\nToday', '$present',
-                Icons.check_circle_rounded, DS.statusPresent, DS.statusPresentBg),
+                Icons.check_circle_rounded, DS.statusPresent, DS.statusPresentBg, 'present'),
             _statCard('Absent\nToday', '$absent', Icons.cancel_rounded,
-                DS.statusAbsent, DS.statusAbsentBg),
+                DS.statusAbsent, DS.statusAbsentBg, 'absent'),
             _statCard('Excused', '$excused', Icons.event_note_rounded,
-                DS.accentViolet, DS.statusExcusedBg),
+                DS.accentViolet, DS.statusExcusedBg, 'excused'),
           ]),
           const SizedBox(height: 24),
+
+          // ══════════════════════════════════════════════
+          //  NEW: Filtered Students Panel
+          //  Shows only when a stat card is tapped
+          // ══════════════════════════════════════════════
+          if (_selectedFilter != null)
+            _buildFilteredStudentsPanel(trainees, statusMap),
+
+          if (_selectedFilter != null) const SizedBox(height: 24),
 
           // ── Performance + Students ──
           Row(
@@ -233,9 +274,9 @@ class SupervisorDashboard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         _cardTitle('My Students'),
-                        if (onViewStudents != null)
+                        if (widget.onViewStudents != null)
                           TextButton(
-                            onPressed: onViewStudents,
+                            onPressed: widget.onViewStudents,
                             child: const Text('View All →',
                                 style: TextStyle(fontSize: 13)),
                           ),
@@ -253,34 +294,24 @@ class SupervisorDashboard extends StatelessWidget {
                         final d = doc.data() as Map<String, dynamic>? ?? {};
                         final name = d['name']?.toString() ?? 'Unknown';
                         final email = d['email']?.toString() ?? '';
-                        final hrs = (d['completedHours'] ?? 0).toDouble();
-                        final rem = (d['remainingHours'] ?? 280).toDouble();
-                        final pct = (hrs + rem) > 0
-                            ? (hrs / (hrs + rem) * 100).round()
-                            : 0;
+                        final sid = d['studentId']?.toString() ?? '';
+                        final status = statusMap[sid] ?? 'absent';
                         final ini = name
                             .split(' ')
                             .map((w) => w.isNotEmpty ? w[0] : '')
                             .take(2)
                             .join()
                             .toUpperCase();
-                        return InkWell(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => StudentDetailsPage(
-                                studentId:
-                                    d['studentId']?.toString() ?? '',
-                                studentName: name,
-                              ),
-                            ),
-                          ),
-                          child: Container(
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(color: DS.neutral100),
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => StudentDetailsPage(
+                                    studentId: sid, studentName: name),
                               ),
                             ),
                             child: Row(children: [
@@ -289,15 +320,14 @@ class SupervisorDashboard extends StatelessWidget {
                                 backgroundColor: DS.primary100,
                                 child: Text(ini,
                                     style: const TextStyle(
-                                        color: DS.primary600,
                                         fontSize: 12,
-                                        fontWeight: FontWeight.w700)),
+                                        fontWeight: FontWeight.w600,
+                                        color: DS.primary700)),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(name,
                                         style: const TextStyle(
@@ -311,34 +341,7 @@ class SupervisorDashboard extends StatelessWidget {
                                   ],
                                 ),
                               ),
-                              SizedBox(
-                                width: 60,
-                                child: Column(children: [
-                                  Text('$pct%',
-                                      style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          color: pct > 60
-                                              ? DS.statusPresent
-                                              : DS.warning)),
-                                  const SizedBox(height: 4),
-                                  ClipRRect(
-                                    borderRadius:
-                                        BorderRadius.circular(2),
-                                    child: LinearProgressIndicator(
-                                      value: pct / 100,
-                                      minHeight: 4,
-                                      backgroundColor: DS.neutral100,
-                                      valueColor:
-                                          AlwaysStoppedAnimation(
-                                        pct > 60
-                                            ? DS.statusPresent
-                                            : DS.warning,
-                                      ),
-                                    ),
-                                  ),
-                                ]),
-                              ),
+                              _statusBadge(status),
                             ]),
                           ),
                         );
@@ -350,16 +353,16 @@ class SupervisorDashboard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
 
-          // ── Pending Excuses ──
+          // ── Excuses Card ──
           _card(
             child: Column(children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _cardTitle('Pending Excuses'),
-                  if (onViewExcuses != null)
+                  _cardTitle('Recent Excuses'),
+                  if (widget.onViewExcuses != null)
                     TextButton(
-                      onPressed: onViewExcuses,
+                      onPressed: widget.onViewExcuses,
                       child: const Text('View All →',
                           style: TextStyle(fontSize: 13)),
                     ),
@@ -369,64 +372,37 @@ class SupervisorDashboard extends StatelessWidget {
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('Excuses')
-                    .where('supervisorId', isEqualTo: supervisorId)
+                    .where('supervisorId', isEqualTo: widget.supervisorId)
                     .where('status', isEqualTo: 'pending')
+                    .limit(3)
                     .snapshots(),
-                builder: (ctx, snap) {
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return const Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Center(
-                          child: CircularProgressIndicator(strokeWidth: 2)),
-                    );
-                  }
+                builder: (context, snap) {
                   if (!snap.hasData || snap.data!.docs.isEmpty) {
                     return Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check_circle_outline,
-                              color: DS.statusPresent.withOpacity(0.5),
-                              size: 20),
-                          const SizedBox(width: 8),
-                          Text('All caught up!',
-                              style: TextStyle(
-                                  color: DS.neutral400, fontSize: 14)),
-                        ],
-                      ),
+                      padding: const EdgeInsets.all(20),
+                      child: Text('No pending excuses',
+                          style: TextStyle(color: DS.neutral400)),
                     );
                   }
                   return Column(
                     children: snap.data!.docs.map((doc) {
-                      final d =
-                          doc.data() as Map<String, dynamic>? ?? {};
-                      return Container(
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(color: DS.neutral100),
-                          ),
-                        ),
+                      final d = doc.data() as Map<String, dynamic>;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
                         child: Row(children: [
-                          Container(
-                            width: 4,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: DS.warning,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
+                          CircleAvatar(
+                            radius: 18,
+                            backgroundColor: DS.statusExcusedBg,
+                            child: const Icon(Icons.description_rounded,
+                                size: 16, color: DS.accentViolet),
                           ),
-                          const SizedBox(width: 14),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  d['studentName']?.toString() ??
-                                      'Student',
+                                  d['studentName']?.toString() ?? 'Student',
                                   style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
@@ -435,8 +411,7 @@ class SupervisorDashboard extends StatelessWidget {
                                 Text(
                                   '${d['type'] ?? 'Excuse'} • ${d['startDate'] ?? ''}',
                                   style: const TextStyle(
-                                      fontSize: 12,
-                                      color: DS.neutral500),
+                                      fontSize: 12, color: DS.neutral500),
                                 ),
                               ],
                             ),
@@ -459,40 +434,291 @@ class SupervisorDashboard extends StatelessWidget {
     );
   }
 
-  Widget _statCard(
-      String label, String value, IconData icon, Color color, Color bg) {
+  // ══════════════════════════════════════════════════════════════
+  //  NEW: Filtered Students Panel
+  // ══════════════════════════════════════════════════════════════
+
+  Widget _buildFilteredStudentsPanel(
+    List<QueryDocumentSnapshot> trainees,
+    Map<String, String> statusMap,
+  ) {
+    // Determine title & color based on filter
+    String title;
+    Color color;
+    switch (_selectedFilter) {
+      case 'present':
+        title = 'Present Students';
+        color = DS.statusPresent;
+        break;
+      case 'absent':
+        title = 'Absent Students';
+        color = DS.statusAbsent;
+        break;
+      case 'excused':
+        title = 'Excused Students';
+        color = DS.accentViolet;
+        break;
+      default:
+        title = 'All Students';
+        color = DS.primary500;
+    }
+
+    // Filter trainees
+    final filtered = trainees.where((doc) {
+      if (_selectedFilter == 'all') return true;
+      final d = doc.data() as Map<String, dynamic>? ?? {};
+      final sid = d['studentId']?.toString() ?? '';
+      final status = statusMap[sid] ?? 'absent';
+      return status == _selectedFilter;
+    }).toList();
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(DS.radiusLG),
+          border: Border.all(color: color.withOpacity(0.3)),
+          boxShadow: DS.shadowSM,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row with title & close button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '$title (${filtered.length})',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: DS.neutral800,
+                    ),
+                  ),
+                ]),
+                InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => setState(() => _selectedFilter = null),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: DS.neutral100,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Icon(Icons.close_rounded,
+                        size: 18, color: DS.neutral500),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Table header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: DS.neutral50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(children: [
+                const Expanded(
+                    flex: 3,
+                    child: Text('Student',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: DS.neutral500))),
+                const Expanded(
+                    flex: 3,
+                    child: Text('Email',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: DS.neutral500))),
+                const Expanded(
+                    flex: 2,
+                    child: Text('Status',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: DS.neutral500))),
+              ]),
+            ),
+
+            const SizedBox(height: 4),
+
+            // Student rows
+            if (filtered.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: Text(
+                    'No students found',
+                    style: TextStyle(color: DS.neutral400, fontSize: 14),
+                  ),
+                ),
+              )
+            else
+              ...filtered.map((doc) {
+                final d = doc.data() as Map<String, dynamic>? ?? {};
+                final name = d['name']?.toString() ?? 'Unknown';
+                final email = d['email']?.toString() ?? '';
+                final sid = d['studentId']?.toString() ?? '';
+                final status = statusMap[sid] ?? 'absent';
+                final ini = name
+                    .split(' ')
+                    .map((w) => w.isNotEmpty ? w[0] : '')
+                    .take(2)
+                    .join()
+                    .toUpperCase();
+
+                return InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => StudentDetailsPage(
+                          studentId: sid, studentName: name),
+                    ),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: DS.neutral100),
+                      ),
+                    ),
+                    child: Row(children: [
+                      // Name with avatar
+                      Expanded(
+                        flex: 3,
+                        child: Row(children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: DS.primary100,
+                            child: Text(ini,
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: DS.primary700)),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(name,
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: DS.neutral800),
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                        ]),
+                      ),
+                      // Email
+                      Expanded(
+                        flex: 3,
+                        child: Text(email,
+                            style: const TextStyle(
+                                fontSize: 13, color: DS.neutral500),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      // Status badge
+                      Expanded(flex: 2, child: _statusBadge(status)),
+                    ]),
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  //  CHANGED: _statCard now accepts filterKey + has onTap
+  // ══════════════════════════════════════════════════════════════
+
+  Widget _statCard(String label, String value, IconData icon, Color color,
+      Color bg, String filterKey) {
+    final isSelected = _selectedFilter == filterKey;
+
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6),
-        child: _HoverCard(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                      color: bg, borderRadius: BorderRadius.circular(12)),
-                  child: Icon(icon, color: color, size: 24),
-                ),
-                const SizedBox(height: 16),
-                Text(value,
-                    style: const TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                        color: DS.neutral900)),
-                const SizedBox(height: 4),
-                Text(label,
-                    style: const TextStyle(
-                        fontSize: 12, color: DS.neutral500, height: 1.3)),
-              ],
+        child: GestureDetector(
+          onTap: () {
+            setState(() {
+              // Toggle: tap again to close
+              if (_selectedFilter == filterKey) {
+                _selectedFilter = null;
+              } else {
+                _selectedFilter = filterKey;
+              }
+            });
+          },
+          child: _HoverCard(
+            isSelected: isSelected,
+            selectedColor: color,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                        color: bg,
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Icon(icon, color: color, size: 24),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(value,
+                      style: const TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w800,
+                          color: DS.neutral900)),
+                  const SizedBox(height: 4),
+                  Text(label,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: DS.neutral500,
+                          height: 1.3)),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  // ── Helper: status badge widget ──
+  Widget _statusBadge(String status) {
+    switch (status) {
+      case 'present':
+        return StatusBadge.present();
+      case 'absent':
+        return StatusBadge.absent();
+      case 'excused':
+        return StatusBadge.excused();
+      default:
+        return StatusBadge.absent();
+    }
   }
 
   Widget _card({required Widget child}) => Container(
@@ -527,9 +753,19 @@ class SupervisorDashboard extends StatelessWidget {
       ]);
 }
 
+// ══════════════════════════════════════════════════════════════
+//  CHANGED: _HoverCard now supports isSelected highlight
+// ══════════════════════════════════════════════════════════════
+
 class _HoverCard extends StatefulWidget {
   final Widget child;
-  const _HoverCard({required this.child});
+  final bool isSelected;
+  final Color? selectedColor;
+  const _HoverCard({
+    required this.child,
+    this.isSelected = false,
+    this.selectedColor,
+  });
   @override
   State<_HoverCard> createState() => _HoverCardState();
 }
@@ -538,17 +774,27 @@ class _HoverCardState extends State<_HoverCard> {
   bool _h = false;
   @override
   Widget build(BuildContext context) {
+    final borderColor = widget.isSelected
+        ? (widget.selectedColor ?? DS.primary500)
+        : (_h ? DS.primary200 : DS.neutral200);
+
     return MouseRegion(
       onEnter: (_) => setState(() => _h = true),
       onExit: (_) => setState(() => _h = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        transform: Matrix4.translationValues(0, _h ? -4 : 0, 0),
+        transform:
+            Matrix4.translationValues(0, (_h || widget.isSelected) ? -4 : 0, 0),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: widget.isSelected
+              ? (widget.selectedColor?.withOpacity(0.04) ?? Colors.white)
+              : Colors.white,
           borderRadius: BorderRadius.circular(DS.radiusLG),
-          border: Border.all(color: _h ? DS.primary200 : DS.neutral200),
-          boxShadow: _h ? DS.shadowMD : DS.shadowSM,
+          border: Border.all(
+            color: borderColor,
+            width: widget.isSelected ? 2 : 1,
+          ),
+          boxShadow: (_h || widget.isSelected) ? DS.shadowMD : DS.shadowSM,
         ),
         child: widget.child,
       ),

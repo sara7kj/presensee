@@ -7,6 +7,7 @@ import 'login_page.dart';
 import 'submit_excuse_page.dart';
 import 'attendance_history_page.dart';
 import 'theme.dart';
+import 'notification_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -24,8 +25,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // Timer
   Timer? _timer;
   Duration _elapsed = Duration.zero;
-  static const targetDuration = Duration(hours: 6); // الوقت المطلوب
-  bool _notified = false; // عشان ما يتكرر الإشعار
+  static const targetDuration = Duration(hours: 6); // Required training time
+  bool _notified = false; // Prevents repeated in-app notifications
 
   // Animation
   late AnimationController _pulseController;
@@ -44,7 +45,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _checkTodayStatus();
   }
 
-  // ── اللوجيك الأصلي بدون تغيير ─────────────────────────────
+  // ── Original logic (unchanged) ─────────────────────────────
   Future<void> _checkTodayStatus() async {
     setState(() => _isLoading = true);
 
@@ -69,6 +70,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           _checkInTime = (data['checkIn'] as Timestamp).toDate();
           _notified = false;
           _startTimer();
+
+          // Schedule reminder notification (if not yet expired)
+          NotificationService.scheduleTrainingEndReminder(
+            checkInTime: _checkInTime!,
+          );
         }
       } else {
         _isCheckedIn = false;
@@ -76,6 +82,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         _checkInTime = null;
         _notified = false;
         _stopTimer();
+
+        // Cancel any old reminder
+        NotificationService.cancelTrainingReminder();
       }
     } catch (e) {
       _showMsg("Error checking status: $e");
@@ -91,10 +100,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         setState(() {
           _elapsed = DateTime.now().difference(_checkInTime!);
         });
-        // اذا وصل 6 ساعات وما سوا checkout
+        // If 6 hours reached and no checkout yet
         if (_elapsed >= targetDuration && !_notified && _isCheckedIn) {
           _notified = true;
-          _showMsg("انتهى وقت التدريب، الرجاء تسجيل الخروج ⏰");
+          _showMsg("Training time ended. Please check out.");
         }
       }
     });
@@ -281,6 +290,29 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               ),
                             ),
                           ],
+                        ),
+                      ),
+                      const SizedBox(width: DS.spaceSM),
+                      // Notification test button (remove after testing)
+                      GestureDetector(
+                        onTap: () {
+                          NotificationService.showInstantNotification(
+                            title: 'Test Notification',
+                            body: 'Notifications are working correctly!',
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius:
+                                BorderRadius.circular(DS.radiusMD),
+                          ),
+                          child: const Icon(
+                            Icons.notifications_active_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
                         ),
                       ),
                       const SizedBox(width: DS.spaceSM),
