@@ -34,17 +34,6 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnim;
 
-  final List<Map<String, double>> manualLocations = const [
-    {'lat': 24.1608566, 'lng': 47.2731534},
-    {'lat': 23.991732, 'lng': 47.119911},
-    {'lat': 23.9964898, 'lng': 47.1129058},
-    {'lat': 23.9886747, 'lng': 47.1267959},
-    {'lat': 24.1636391, 'lng': 47.3122536},
-    {'lat': 24.1471470, 'lng': 47.2709184},
-    {'lat': 24.1470161, 'lng': 47.2711555},
-    {'lat': 23.9906, 'lng': 47.2107},
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -284,6 +273,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     }
   }
 
+  // ══════════════════════════════════════════════════════════════
+  //  ✅ التحقق من موقع الطالب المعيّن فقط (من Firestore)
+  // ══════════════════════════════════════════════════════════════
   Future<bool> _isInsideTrainingLocation() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) throw Exception("Location services are OFF");
@@ -301,32 +293,67 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       desiredAccuracy: LocationAccuracy.high,
     );
 
-    const radiusMeters = 100.0;
-
-    for (final loc in manualLocations) {
-      final d = Geolocator.distanceBetween(
-        pos.latitude,
-        pos.longitude,
-        loc['lat']!,
-        loc['lng']!,
-      );
-      if (d <= radiusMeters) return true;
+    // 1) جيب UID الطالب الحالي
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      throw Exception("User not authenticated");
     }
 
-    final locations = await _firestore.collection('locations').get();
-    for (final doc in locations.docs) {
-      final lat = (doc['lat'] as num).toDouble();
-      final lng = (doc['lng'] as num).toDouble();
-      final d = Geolocator.distanceBetween(
-        pos.latitude,
-        pos.longitude,
-        lat,
-        lng,
-      );
-      if (d <= radiusMeters) return true;
+    // 2) جيب وثيقة الطالب من Trainees عشان نعرف locationId
+    final traineeQuery = await _firestore
+        .collection('Trainees')
+        .where('userId', isEqualTo: uid)
+        .limit(1)
+        .get();
+
+    if (traineeQuery.docs.isEmpty) {
+      throw Exception("Trainee profile not found");
     }
 
-    return false;
+    final locationId = traineeQuery.docs.first.data()['locationId'];
+    if (locationId == null || locationId.toString().isEmpty) {
+      throw Exception("No training location assigned to you");
+    }
+
+    // 3) جيب وثيقة الموقع (نجرّب الاسمين Locations و locations للأمان)
+    DocumentSnapshot? locDoc;
+    try {
+      locDoc = await _firestore
+          .collection('Locations')
+          .doc(locationId.toString())
+          .get();
+      if (!locDoc.exists) {
+        locDoc = await _firestore
+            .collection('locations')
+            .doc(locationId.toString())
+            .get();
+      }
+    } catch (_) {
+      locDoc = null;
+    }
+
+    if (locDoc == null || !locDoc.exists) {
+      throw Exception("Training location not found");
+    }
+
+    final locData = locDoc.data() as Map<String, dynamic>;
+    final lat = (locData['lat'] as num?)?.toDouble();
+    final lng = (locData['lng'] as num?)?.toDouble();
+    final radius = (locData['radius'] as num?)?.toDouble() ?? 100.0;
+
+    if (lat == null || lng == null) {
+      throw Exception("Invalid location coordinates");
+    }
+
+    // 4) احسب المسافة وقارنها بنصف القطر المخصص للموقع
+    final distance = Geolocator.distanceBetween(
+      pos.latitude,
+      pos.longitude,
+      lat,
+      lng,
+    );
+
+    return distance <= radius;
   }
 
   void _showMsg(String msg) {

@@ -22,6 +22,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   String? _checkInDocId;
   DateTime? _checkInTime;
 
+  // Student name (loaded from Firestore Trainees collection)
+  String _studentName = "Student";
+
   // Timer
   Timer? _timer;
   Duration _elapsed = Duration.zero;
@@ -42,7 +45,34 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _pulseAnim = Tween<double>(begin: 0.95, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+    _loadStudentName();
     _checkTodayStatus();
+  }
+
+  // ── Load student name from Firestore ───────────────────────
+  Future<void> _loadStudentName() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+
+      final query = await FirebaseFirestore.instance
+          .collection('Trainees')
+          .where('userId', isEqualTo: uid)
+          .limit(1)
+          .get();
+
+      if (query.docs.isNotEmpty && mounted) {
+        final fullName =
+            query.docs.first.data()['name']?.toString() ?? '';
+        // Take only the first name for the welcome message
+        final firstName = fullName.split(' ').first;
+        setState(() {
+          _studentName = firstName.isNotEmpty ? firstName : "Student";
+        });
+      }
+    } catch (e) {
+      // Keep default "Student" if anything fails
+    }
   }
 
   // ── Original logic (unchanged) ─────────────────────────────
@@ -155,8 +185,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // ══════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    final name = user?.email?.split('@').first ?? "Student";
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return ThemedScaffold(
@@ -166,7 +194,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             )
           : Column(
               children: [
-                _buildHeader(name, isDark),
+                _buildHeader(_studentName, isDark),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(

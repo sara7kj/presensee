@@ -1,9 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:http/http.dart' as http;
 import 'theme.dart';
 
 class SubmitExcusePage extends StatefulWidget {
@@ -15,6 +16,12 @@ class SubmitExcusePage extends StatefulWidget {
 
 class _SubmitExcusePageState extends State<SubmitExcusePage>
     with SingleTickerProviderStateMixin {
+  // ═══════════════════════════════════════════════════════
+  // ✅ Cloudinary configuration
+  // ═══════════════════════════════════════════════════════
+  static const String _cloudName = 'dpqfhrryg';
+  static const String _uploadPreset = 'presensee_excuses';
+
   final _reasonController = TextEditingController();
   DateTime? _selectedDate;
   String? _fileName;
@@ -77,6 +84,63 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
     }
   }
 
+  // ══════════════════════════════════════════════════════════════
+  //  ✅ رفع الملف على Cloudinary وإرجاع الـ URL
+  // ══════════════════════════════════════════════════════════════
+  Future<String> _uploadToCloudinary(String uid) async {
+    final filePath = _pickerResult!.files.first.path!;
+    final file = File(filePath);
+
+    // فحص حجم الملف (max 10MB)
+    final fileSize = await file.length();
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (fileSize > maxSize) {
+      throw Exception('File size exceeds 10MB limit');
+    }
+
+    // معرفة نوع الملف
+    final extension = _fileName!.split('.').last.toLowerCase();
+    final isImage = ['jpg', 'jpeg', 'png'].contains(extension);
+    final isPdf = extension == 'pdf';
+
+    // ✅ PDF يرفع كـ image عشان يفتح مباشرة في المتصفح/البريد
+    final resourceType = (isImage || isPdf) ? 'image' : 'raw';
+
+    // اسم فريد بـ timestamp
+    final fileNameWithoutExt = _fileName!.replaceAll('.$extension', '');
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final publicId = '${timestamp}_$fileNameWithoutExt';
+
+    // URL endpoint
+    final uri = Uri.parse(
+        'https://api.cloudinary.com/v1_1/$_cloudName/$resourceType/upload');
+
+    // إنشاء request متعدد الأجزاء
+    final request = http.MultipartRequest('POST', uri)
+      ..fields['upload_preset'] = _uploadPreset
+      ..fields['folder'] = 'excuses/$uid'
+      ..fields['public_id'] = publicId
+      ..files.add(await http.MultipartFile.fromPath('file', filePath));
+
+    // إرسال الـ request
+    final response = await request.send();
+    final responseBody = await response.stream.bytesToString();
+
+    if (response.statusCode != 200) {
+      throw Exception('Upload failed: $responseBody');
+    }
+
+    // استخراج الـ URL من الـ response
+    final data = json.decode(responseBody) as Map<String, dynamic>;
+    final secureUrl = data['secure_url'] as String?;
+
+    if (secureUrl == null || secureUrl.isEmpty) {
+      throw Exception('No URL returned from Cloudinary');
+    }
+
+    return secureUrl;
+  }
+
   void _submit() async {
     if (_selectedDate == null ||
         _reasonController.text.isEmpty ||
@@ -91,13 +155,18 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
       // ✅ جلب الـ UID ديناميكياً
       final uid = FirebaseAuth.instance.currentUser!.uid;
 
+      // ═══════════════════════════════════════════════════════
+      // ✅ ارفع الملف على Cloudinary أولاً
+      // ═══════════════════════════════════════════════════════
+      final fileUrl = await _uploadToCloudinary(uid);
+
       // حفظ في كولكشن attendance (للطالب)
       await FirebaseFirestore.instance.collection('attendance').add({
         'uid': uid,
         'checkIn': Timestamp.fromDate(_selectedDate!),
         'status': 'Excused',
         'reason': _reasonController.text,
-        'attachmentUrl': " ",
+        'attachmentUrl': fileUrl, // ✅ URL حقيقي بدل string فاضي
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -124,7 +193,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
           'endDate': dateStr,
           'reason': _reasonController.text,
           'status': 'pending',
-          'fileUrl': '',
+          'fileUrl': fileUrl, // ✅ URL حقيقي بدل string فاضي
         });
       }
       // ═══════════════════════════════════════════════════════
