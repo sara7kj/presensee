@@ -200,7 +200,8 @@ class _FaceVerifyPageState extends State<FaceVerifyPage>
       print("STORED len=${stored.length} first3=${stored.take(3).toList()}");
       print("🧪 Face distance (normalized) = $dist");
 
-      final ok = dist < 0.95;
+      // ✅ عتبة محكمة (0.75 بدل 0.95) لمنع قبول وجوه غير الطالب
+      final ok = dist < 0.75;
 
       setState(() {
         isFaceOk = ok;

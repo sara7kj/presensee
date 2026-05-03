@@ -106,10 +106,23 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
     // ✅ PDF يرفع كـ image عشان يفتح مباشرة في المتصفح/البريد
     final resourceType = (isImage || isPdf) ? 'image' : 'raw';
 
-    // اسم فريد بـ timestamp
-    final fileNameWithoutExt = _fileName!.replaceAll('.$extension', '');
+    // ✅ اسم فريد بـ timestamp - تنظيف من العربي والرموز الخاصة
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final publicId = '${timestamp}_$fileNameWithoutExt';
+
+    String cleanFileName = _fileName!
+        .replaceAll('.$extension', '') // شيل الامتداد
+        .replaceAll(RegExp(r'[^\x00-\x7F]'), '') // شيل العربي والرموز غير ASCII
+        .replaceAll(RegExp(r'[^\w\s-]'), '') // شيل الرموز الخاصة
+        .replaceAll(RegExp(r'\s+'), '_') // غير المسافات لـ _
+        .replaceAll(RegExp(r'_+'), '_') // اشيل التكرار
+        .replaceAll(RegExp(r'^_|_$'), ''); // شيل _ من البداية/النهاية
+
+    // لو الاسم انتهى فاضي بعد التنظيف، استخدم اسم افتراضي
+    if (cleanFileName.isEmpty) {
+      cleanFileName = 'document';
+    }
+
+    final publicId = '${timestamp}_$cleanFileName';
 
     // URL endpoint
     final uri = Uri.parse(
