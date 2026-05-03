@@ -258,16 +258,52 @@ class _WebLoginPageState extends State<WebLoginPage> with TickerProviderStateMix
 
   Widget _lbl(String t) => Text(t, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.5)));
 
+  // ══════════════════════════════════════════════════════════════
+  // ✅ تعديل function _input لإصلاح مشكلة autofill (أبيض على أبيض)
+  // ══════════════════════════════════════════════════════════════
   Widget _input(TextEditingController ctrl, String hint, IconData icon, bool obs, Widget? suf) {
     return Container(
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.04), borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withOpacity(0.07))),
-      child: TextField(controller: ctrl, obscureText: obs,
-        style: const TextStyle(fontSize: 14, color: Colors.white), cursorColor: DS.primary300,
-        decoration: InputDecoration(hintText: hint, hintStyle: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.2)),
-          prefixIcon: Icon(icon, size: 18, color: Colors.white.withOpacity(0.3)),
-          suffixIcon: suf, border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14))),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withOpacity(0.07)),
+      ),
+      child: TextField(
+        controller: ctrl,
+        obscureText: obs,
+        // ✅ إجبار لون النص أبيض دائماً (حتى مع autofill)
+        style: const TextStyle(
+          fontSize: 14,
+          color: Colors.white,
+          decoration: TextDecoration.none,
+        ),
+        cursorColor: DS.primary300,
+        // ✅ تعطيل autofill عشان المتصفح ما يخرب الألوان
+        autofillHints: null,
+        enableSuggestions: false,
+        autocorrect: false,
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(
+            fontSize: 13,
+            color: Colors.white.withOpacity(0.3),
+          ),
+          prefixIcon: Icon(icon, size: 18, color: Colors.white.withOpacity(0.4)),
+          suffixIcon: suf,
+          // ✅ إجبار خلفية الحقل شفافة (داخل الـ Container الأصلي)
+          filled: true,
+          fillColor: Colors.transparent,
+          // ✅ إزالة كل البوردرات عشان الـ Container الأم يتولى الستايل
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        ),
+      ),
     );
   }
 }

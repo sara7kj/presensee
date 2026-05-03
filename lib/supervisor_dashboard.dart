@@ -36,6 +36,16 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
     return '${n.year}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
   }
 
+  // ══════════════════════════════════════════════════════════════
+  // ✅ NEW: تحديد لو اليوم يوم تدريب أو إجازة
+  // الجمعة + السبت = إجازة، باقي الأيام = تدريب
+  // ══════════════════════════════════════════════════════════════
+  bool get _isWorkingDay {
+    final today = DateTime.now();
+    return today.weekday != DateTime.friday &&
+        today.weekday != DateTime.saturday;
+  }
+
   String get _firstName {
     final parts = widget.supervisorName.split(' ');
     if (parts.length > 1 &&
@@ -70,7 +80,10 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
             .toList();
 
         if (studentIds.isEmpty) {
-          return _buildContent(context, trainees, total, 0, 0, 0, 0, {});
+          // ✅ يوم إجازة بدون طلاب = 100%، يوم عمل بدون طلاب = 0%
+          final emptyPerf = _isWorkingDay ? 0 : 100;
+          return _buildContent(
+              context, trainees, total, 0, 0, 0, emptyPerf, {});
         }
 
         return StreamBuilder<QuerySnapshot>(
@@ -102,20 +115,46 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
                   if (sid.isNotEmpty) statusMap[sid] = 'excused';
                 }
               }
-              final accounted = present + absent + excused;
-              if (accounted < total) absent += total - accounted;
+
+              // ═══════════════════════════════════════════════════════
+              // ✅ يوم تدريب: من ما سجل = غايب
+              // ✅ يوم إجازة: ما نحسب أحد غايب
+              // ═══════════════════════════════════════════════════════
+              if (_isWorkingDay) {
+                final accounted = present + absent + excused;
+                if (accounted < total) absent += total - accounted;
+              }
+              // في يوم الإجازة، اللي ما سجلوا يبقون بدون status (مو غايبين)
             }
 
-            // Mark students without records as absent
+            // ═══════════════════════════════════════════════════════
+            // ✅ تحديد status للطلاب اللي ما عندهم سجل
+            // يوم تدريب → absent
+            // يوم إجازة → excused (لأن اليوم إجازة، مو غياب)
+            // ═══════════════════════════════════════════════════════
             for (final sid in studentIds) {
               if (!statusMap.containsKey(sid)) {
-                statusMap[sid] = 'absent';
+                statusMap[sid] = _isWorkingDay ? 'absent' : 'excused';
               }
             }
 
-            final perf = total > 0 ? (present / total * 100).round() : 0;
-            return _buildContent(
-                context, trainees, total, present, absent, excused, perf, statusMap);
+            // ═══════════════════════════════════════════════════════
+            // ✅ معادلة النسبة الجديدة:
+            // - يوم تدريب: (present + excused) / total × 100
+            //   (المعذور يحسب حضور لأن عذره مقبول)
+            // - يوم إجازة: 100% (ما فيه غياب)
+            // ═══════════════════════════════════════════════════════
+            int perf;
+            if (!_isWorkingDay) {
+              perf = 100;
+            } else if (total > 0) {
+              perf = ((present + excused) / total * 100).round();
+            } else {
+              perf = 0;
+            }
+
+            return _buildContent(context, trainees, total, present, absent,
+                excused, perf, statusMap);
           },
         );
       },
@@ -242,8 +281,11 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
                                       fontSize: 36,
                                       fontWeight: FontWeight.w800,
                                       color: DS.neutral900)),
-                              const Text('attendance',
-                                  style: TextStyle(
+                              Text(
+                                  _isWorkingDay
+                                      ? 'attendance'
+                                      : 'holiday',
+                                  style: const TextStyle(
                                       fontSize: 11, color: DS.neutral500)),
                             ],
                           ),

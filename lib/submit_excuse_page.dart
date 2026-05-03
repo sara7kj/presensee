@@ -28,6 +28,9 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
   FilePickerResult? _pickerResult;
   bool _isSubmitting = false;
 
+  // ✅ نوع العذر المختار: 'Sick Leave' أو 'Excuse'
+  String? _excuseType;
+
   late AnimationController _fadeController;
   late Animation<double> _fadeAnim;
 
@@ -155,6 +158,12 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
   }
 
   void _submit() async {
+    // ✅ التحقق من اختيار نوع العذر أولاً
+    if (_excuseType == null) {
+      SnackHelper.error(context, 'Please select excuse type');
+      return;
+    }
+
     if (_selectedDate == null ||
         _reasonController.text.isEmpty ||
         _pickerResult == null) {
@@ -201,7 +210,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
           'studentId': t['studentId'],
           'studentName': t['name'],
           'supervisorId': t['supervisorId'],
-          'type': 'Sick Leave',
+          'type': _excuseType, // ✅ النوع المختار من المستخدم
           'startDate': dateStr,
           'endDate': dateStr,
           'reason': _reasonController.text,
@@ -224,6 +233,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
         _reasonController.clear();
         _fileName = null;
         _pickerResult = null;
+        _excuseType = null; // ✅ reset النوع
       });
     } catch (e) {
       SnackHelper.error(context, 'Error: $e');
@@ -233,6 +243,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
   }
 
   bool get _isFormComplete =>
+      _excuseType != null &&
       _selectedDate != null &&
       _reasonController.text.isNotEmpty &&
       _pickerResult != null;
@@ -252,8 +263,20 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
             children: [
               _buildInfoCard(isDark),
               const SizedBox(height: DS.spaceLG),
+              // ═══════════════════════════════════════════════════
+              // ✅ Step 1: Excuse Type (جديد)
+              // ═══════════════════════════════════════════════════
               _buildStepHeader(
                 number: '1',
+                title: 'Excuse Type',
+                subtitle: 'What kind of excuse?',
+                isDark: isDark,
+              ),
+              const SizedBox(height: DS.spaceSM),
+              _buildExcuseTypeSelector(isDark),
+              const SizedBox(height: DS.spaceLG),
+              _buildStepHeader(
+                number: '2',
                 title: 'Absence Date',
                 subtitle: 'When were you absent?',
                 isDark: isDark,
@@ -262,7 +285,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
               _buildDatePicker(isDark),
               const SizedBox(height: DS.spaceLG),
               _buildStepHeader(
-                number: '2',
+                number: '3',
                 title: 'Reason for Absence',
                 subtitle: 'Describe why you were absent',
                 isDark: isDark,
@@ -271,7 +294,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
               _buildReasonField(isDark),
               const SizedBox(height: DS.spaceLG),
               _buildStepHeader(
-                number: '3',
+                number: '4',
                 title: 'Supporting Document',
                 subtitle: 'Upload proof (PDF or image)',
                 isDark: isDark,
@@ -321,6 +344,117 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
               const SizedBox(height: DS.spaceLG),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // ✅ widget جديد: اختيار نوع العذر (Sick Leave / Excuse)
+  // ══════════════════════════════════════════════════════════════
+  Widget _buildExcuseTypeSelector(bool isDark) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildTypeCard(
+            type: 'Sick Leave',
+            label: 'Sick Leave',
+            subtitle: 'Medical reason',
+            icon: Icons.medical_services_rounded,
+            color: DS.error,
+            isDark: isDark,
+          ),
+        ),
+        const SizedBox(width: DS.spaceMD),
+        Expanded(
+          child: _buildTypeCard(
+            type: 'Excuse',
+            label: 'Excuse',
+            subtitle: 'Other reason',
+            icon: Icons.description_rounded,
+            color: DS.primary500,
+            isDark: isDark,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTypeCard({
+    required String type,
+    required String label,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required bool isDark,
+  }) {
+    final isSelected = _excuseType == type;
+
+    return GestureDetector(
+      onTap: () => setState(() => _excuseType = type),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(DS.spaceMD),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? color.withOpacity(isDark ? 0.15 : 0.08)
+              : (isDark ? DS.darkCard : Colors.white),
+          borderRadius: BorderRadius.circular(DS.radiusXL),
+          border: Border.all(
+            color: isSelected
+                ? color
+                : (isDark ? DS.neutral700 : DS.neutral300),
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isDark ? null : (isSelected ? null : DS.shadowSM),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? color.withOpacity(0.15)
+                    : (isDark
+                        ? color.withOpacity(0.10)
+                        : color.withOpacity(0.08)),
+                borderRadius: BorderRadius.circular(DS.radiusLG),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 24,
+              ),
+            ),
+            const SizedBox(height: DS.spaceSM),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: isSelected
+                    ? color
+                    : (isDark ? Colors.white : DS.neutral800),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 11,
+                color: DS.neutral500,
+              ),
+            ),
+            if (isSelected) ...[
+              const SizedBox(height: DS.spaceSM),
+              Icon(
+                Icons.check_circle_rounded,
+                color: color,
+                size: 18,
+              ),
+            ],
+          ],
         ),
       ),
     );
