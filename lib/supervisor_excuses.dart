@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'theme.dart';
 
 class SupervisorExcuses extends StatefulWidget {
@@ -42,23 +43,22 @@ class _State extends State<SupervisorExcuses> {
           builder: (ctx, countSnap) {
             if (!countSnap.hasData) return const SizedBox();
             final all = countSnap.data!.docs;
-            final pending = all.where((d) => d['status'] == 'pending').length;
+            final pending  = all.where((d) => d['status'] == 'pending').length;
             final approved = all.where((d) => d['status'] == 'approved').length;
             final rejected = all.where((d) => d['status'] == 'rejected').length;
             return Padding(
               padding: const EdgeInsets.only(bottom: 20),
               child: Row(children: [
-                _countChip('$pending pending', DS.warning, DS.statusLateBg),
+                _countChip('$pending pending',   DS.warning,       DS.statusLateBg),
                 const SizedBox(width: 10),
                 _countChip('$approved approved', DS.statusPresent, DS.statusPresentBg),
                 const SizedBox(width: 10),
-                _countChip('$rejected rejected', DS.statusAbsent, DS.statusAbsentBg),
+                _countChip('$rejected rejected', DS.statusAbsent,  DS.statusAbsentBg),
               ]),
             );
           },
         ),
 
-        // List
         _list(),
       ]),
     );
@@ -74,10 +74,15 @@ class _State extends State<SupervisorExcuses> {
         decoration: BoxDecoration(
           color: sel ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(9),
-          boxShadow: sel ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 1))] : [],
+          boxShadow: sel
+              ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 1))]
+              : [],
         ),
-        child: Text(label, style: TextStyle(fontSize: 13, fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
-          color: sel ? DS.neutral800 : DS.neutral500)),
+        child: Text(label, style: TextStyle(
+          fontSize: 13,
+          fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
+          color: sel ? DS.neutral800 : DS.neutral500,
+        )),
       ),
     );
   }
@@ -90,59 +95,86 @@ class _State extends State<SupervisorExcuses> {
 
   Widget _list() {
     Query q = FirebaseFirestore.instance.collection('Excuses')
-      .where('supervisorId', isEqualTo: widget.supervisorId);
+        .where('supervisorId', isEqualTo: widget.supervisorId);
     if (_filter != 'all') q = q.where('status', isEqualTo: _filter);
 
     return StreamBuilder<QuerySnapshot>(
       stream: q.snapshots(),
       builder: (ctx, snap) {
         if (snap.connectionState == ConnectionState.waiting)
-          return const Center(child: Padding(padding: EdgeInsets.all(60), child: CircularProgressIndicator()));
-        if (!snap.hasData || snap.data!.docs.isEmpty)
-          return Center(child: Padding(padding: const EdgeInsets.all(60), child: Column(children: [
-            Container(
-              width: 64, height: 64,
-              decoration: BoxDecoration(color: DS.neutral100, borderRadius: BorderRadius.circular(16)),
-              child: const Icon(Icons.inbox_rounded, size: 32, color: DS.neutral300),
-            ),
-            const SizedBox(height: 16),
-            const Text('No excuses found', style: TextStyle(color: DS.neutral400, fontSize: 15)),
-          ])));
-
-        return Column(children: snap.data!.docs.map((doc) {
-          final d = doc.data() as Map<String, dynamic>;
-          return _ExcuseCard(
-            docId: doc.id,
-            name: d['studentName'] ?? '',
-            type: d['type'] ?? '',
-            start: d['startDate'] ?? '',
-            end: d['endDate'] ?? '',
-            reason: d['reason'] ?? '',
-            status: d['status'] ?? 'pending',
-            fileUrl: d['fileUrl'],
+          return const Center(
+            child: Padding(padding: EdgeInsets.all(60), child: CircularProgressIndicator()),
           );
-        }).toList());
+
+        if (!snap.hasData || snap.data!.docs.isEmpty)
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(60),
+              child: Column(children: [
+                Container(
+                  width: 64, height: 64,
+                  decoration: BoxDecoration(color: DS.neutral100, borderRadius: BorderRadius.circular(16)),
+                  child: const Icon(Icons.inbox_rounded, size: 32, color: DS.neutral300),
+                ),
+                const SizedBox(height: 16),
+                const Text('No excuses found', style: TextStyle(color: DS.neutral400, fontSize: 15)),
+              ]),
+            ),
+          );
+
+        return Column(
+          children: snap.data!.docs.map((doc) {
+            final d = doc.data() as Map<String, dynamic>;
+            return _ExcuseCard(
+              docId:   doc.id,
+              name:    d['studentName'] ?? '',
+              type:    d['type']        ?? '',
+              start:   d['startDate']   ?? '',
+              end:     d['endDate']     ?? '',
+              reason:  d['reason']      ?? '',
+              status:  d['status']      ?? 'pending',
+              fileUrl: d['fileUrl'],
+            );
+          }).toList(),
+        );
       },
     );
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  Excuse Card
+// ═══════════════════════════════════════════════════════════════
 class _ExcuseCard extends StatelessWidget {
   final String docId, name, type, start, end, reason, status;
   final dynamic fileUrl;
 
   const _ExcuseCard({
-    required this.docId, required this.name, required this.type,
-    required this.start, required this.end, required this.reason,
+    required this.docId,  required this.name,   required this.type,
+    required this.start,  required this.end,    required this.reason,
     required this.status, this.fileUrl,
   });
 
   Future<void> _act(BuildContext ctx, String s) async {
     try {
       await FirebaseFirestore.instance.collection('Excuses').doc(docId).update({'status': s});
-      if (ctx.mounted) SnackHelper.success(ctx, 'Excuse ${s == 'approved' ? 'approved' : 'rejected'}');
+      if (ctx.mounted)
+        SnackHelper.success(ctx, 'Excuse ${s == 'approved' ? 'approved' : 'rejected'}');
     } catch (e) {
       if (ctx.mounted) SnackHelper.error(ctx, 'Error: $e');
+    }
+  }
+
+  // ✅ Google Docs Viewer يعرض أي PDF من أي رابط بدون مشاكل
+  Future<void> _openAttachment() async {
+    try {
+      final String rawUrl = fileUrl.toString();
+      final String viewerUrl =
+          'https://docs.google.com/viewer?url=${Uri.encodeComponent(rawUrl)}';
+      final uri = Uri.parse(viewerUrl);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('Error opening attachment: $e');
     }
   }
 
@@ -154,92 +186,147 @@ class _ExcuseCard extends StatelessWidget {
     Widget badge;
     Color accent;
     switch (status) {
-      case 'approved': badge = StatusBadge.present(); accent = DS.statusPresent; break;
-      case 'rejected': badge = StatusBadge.absent(); accent = DS.statusAbsent; break;
-      default: badge = const StatusBadge(label: 'Pending', color: DS.statusLate, backgroundColor: DS.statusLateBg); accent = DS.warning;
+      case 'approved':
+        badge  = StatusBadge.present();
+        accent = DS.statusPresent;
+        break;
+      case 'rejected':
+        badge  = StatusBadge.absent();
+        accent = DS.statusAbsent;
+        break;
+      default:
+        badge  = const StatusBadge(label: 'Pending', color: DS.statusLate, backgroundColor: DS.statusLateBg);
+        accent = DS.warning;
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: DS.neutral200), boxShadow: DS.shadowSM,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: DS.neutral200),
+        boxShadow: DS.shadowSM,
       ),
       child: Column(children: [
+
         // Status accent bar
-        Container(height: 3,
+        Container(
+          height: 3,
           decoration: BoxDecoration(
             color: accent,
-            borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
-          )),
-        Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [DS.primary500.withOpacity(0.15), DS.accentTeal.withOpacity(0.1)]),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(child: Text(ini, style: const TextStyle(color: DS.primary600, fontSize: 14, fontWeight: FontWeight.w700))),
+            borderRadius: const BorderRadius.only(
+              topLeft:  Radius.circular(16),
+              topRight: Radius.circular(16),
             ),
-            const SizedBox(width: 14),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: DS.neutral800)),
-              const SizedBox(height: 4),
-              Row(children: [
-                Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: DS.primary50, borderRadius: BorderRadius.circular(4)),
-                  child: Text(type, style: const TextStyle(fontSize: 11, color: DS.primary500, fontWeight: FontWeight.w500))),
-                const SizedBox(width: 8),
-                Icon(Icons.calendar_today_rounded, size: 12, color: DS.neutral400),
-                const SizedBox(width: 4),
-                Text(dateRange, style: const TextStyle(fontSize: 12, color: DS.neutral500)),
-              ]),
-              if (reason.isNotEmpty) Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Text(reason, style: const TextStyle(fontSize: 13, color: DS.neutral600, height: 1.4)),
+          ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Avatar
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [
+                    DS.primary500.withOpacity(0.15),
+                    DS.accentTeal.withOpacity(0.1),
+                  ]),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(ini, style: const TextStyle(
+                    color: DS.primary600, fontSize: 14, fontWeight: FontWeight.w700,
+                  )),
+                ),
               ),
-            ])),
-            badge,
+              const SizedBox(width: 14),
+
+              // Info
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(name, style: const TextStyle(
+                  fontSize: 15, fontWeight: FontWeight.w600, color: DS.neutral800,
+                )),
+                const SizedBox(height: 4),
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(color: DS.primary50, borderRadius: BorderRadius.circular(4)),
+                    child: Text(type, style: const TextStyle(
+                      fontSize: 11, color: DS.primary500, fontWeight: FontWeight.w500,
+                    )),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(Icons.calendar_today_rounded, size: 12, color: DS.neutral400),
+                  const SizedBox(width: 4),
+                  Text(dateRange, style: const TextStyle(fontSize: 12, color: DS.neutral500)),
+                ]),
+                if (reason.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(reason, style: const TextStyle(
+                      fontSize: 13, color: DS.neutral600, height: 1.4,
+                    )),
+                  ),
+              ])),
+
+              badge,
+            ]),
+
+            // ✅ زر عرض المرفق
+            if (fileUrl != null && fileUrl.toString().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: TextButton.icon(
+                  onPressed: _openAttachment,
+                  icon: const Icon(Icons.attach_file_rounded, size: 16),
+                  label: const Text('View Attachment'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: DS.primary500,
+                    textStyle: const TextStyle(fontSize: 13),
+                  ),
+                ),
+              ),
+
+            // Approve / Reject buttons
+            if (status == 'pending') ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.only(top: 16),
+                decoration: BoxDecoration(border: Border(top: BorderSide(color: DS.neutral100))),
+                child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  OutlinedButton.icon(
+                    onPressed: () => _act(context, 'rejected'),
+                    icon: const Icon(Icons.close_rounded, size: 16),
+                    label: const Text('Reject'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: DS.statusAbsent,
+                      side: BorderSide(color: DS.statusAbsent.withOpacity(0.3)),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton.icon(
+                    onPressed: () => _act(context, 'approved'),
+                    icon: const Icon(Icons.check_rounded, size: 16),
+                    label: const Text('Approve'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: DS.statusPresent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 0,
+                    ),
+                  ),
+                ]),
+              ),
+            ],
+
           ]),
-
-          if (fileUrl != null && fileUrl.toString().isNotEmpty)
-            Padding(padding: const EdgeInsets.only(top: 12), child: TextButton.icon(
-              onPressed: () {}, icon: const Icon(Icons.attach_file_rounded, size: 16), label: const Text('View Attachment'),
-              style: TextButton.styleFrom(foregroundColor: DS.primary500, textStyle: const TextStyle(fontSize: 13)),
-            )),
-
-          if (status == 'pending') ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.only(top: 16),
-              decoration: BoxDecoration(border: Border(top: BorderSide(color: DS.neutral100))),
-              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                OutlinedButton.icon(
-                  onPressed: () => _act(context, 'rejected'),
-                  icon: const Icon(Icons.close_rounded, size: 16),
-                  label: const Text('Reject'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: DS.statusAbsent, side: BorderSide(color: DS.statusAbsent.withOpacity(0.3)),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton.icon(
-                  onPressed: () => _act(context, 'approved'),
-                  icon: const Icon(Icons.check_rounded, size: 16),
-                  label: const Text('Approve'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: DS.statusPresent, foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), elevation: 0,
-                  ),
-                ),
-              ]),
-            ),
-          ],
-        ])),
+        ),
       ]),
     );
   }

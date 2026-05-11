@@ -28,7 +28,6 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
   FilePickerResult? _pickerResult;
   bool _isSubmitting = false;
 
-  // ✅ نوع العذر المختار: 'Sick Leave' أو 'Excuse'
   String? _excuseType;
 
   late AnimationController _fadeController;
@@ -96,7 +95,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
 
     // فحص حجم الملف (max 10MB)
     final fileSize = await file.length();
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 10 * 1024 * 1024;
     if (fileSize > maxSize) {
       throw Exception('File size exceeds 10MB limit');
     }
@@ -104,41 +103,35 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
     // معرفة نوع الملف
     final extension = _fileName!.split('.').last.toLowerCase();
     final isImage = ['jpg', 'jpeg', 'png'].contains(extension);
-    final isPdf = extension == 'pdf';
 
-    // ✅ PDF يرفع كـ image عشان يفتح مباشرة في المتصفح/البريد
-    final resourceType = (isImage || isPdf) ? 'image' : 'raw';
+    // ✅ PDF يرفع كـ raw عشان يفتح صح — الصور كـ image
+    final resourceType = isImage ? 'image' : 'raw';
 
-    // ✅ اسم فريد بـ timestamp - تنظيف من العربي والرموز الخاصة
     final timestamp = DateTime.now().millisecondsSinceEpoch;
 
     String cleanFileName = _fileName!
-        .replaceAll('.$extension', '') // شيل الامتداد
-        .replaceAll(RegExp(r'[^\x00-\x7F]'), '') // شيل العربي والرموز غير ASCII
-        .replaceAll(RegExp(r'[^\w\s-]'), '') // شيل الرموز الخاصة
-        .replaceAll(RegExp(r'\s+'), '_') // غير المسافات لـ _
-        .replaceAll(RegExp(r'_+'), '_') // اشيل التكرار
-        .replaceAll(RegExp(r'^_|_$'), ''); // شيل _ من البداية/النهاية
+        .replaceAll('.$extension', '')
+        .replaceAll(RegExp(r'[^\x00-\x7F]'), '')
+        .replaceAll(RegExp(r'[^\w\s-]'), '')
+        .replaceAll(RegExp(r'\s+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
 
-    // لو الاسم انتهى فاضي بعد التنظيف، استخدم اسم افتراضي
     if (cleanFileName.isEmpty) {
       cleanFileName = 'document';
     }
 
     final publicId = '${timestamp}_$cleanFileName';
 
-    // URL endpoint
     final uri = Uri.parse(
         'https://api.cloudinary.com/v1_1/$_cloudName/$resourceType/upload');
 
-    // إنشاء request متعدد الأجزاء
     final request = http.MultipartRequest('POST', uri)
       ..fields['upload_preset'] = _uploadPreset
       ..fields['folder'] = 'excuses/$uid'
       ..fields['public_id'] = publicId
       ..files.add(await http.MultipartFile.fromPath('file', filePath));
 
-    // إرسال الـ request
     final response = await request.send();
     final responseBody = await response.stream.bytesToString();
 
@@ -146,7 +139,6 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
       throw Exception('Upload failed: $responseBody');
     }
 
-    // استخراج الـ URL من الـ response
     final data = json.decode(responseBody) as Map<String, dynamic>;
     final secureUrl = data['secure_url'] as String?;
 
@@ -158,7 +150,6 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
   }
 
   void _submit() async {
-    // ✅ التحقق من اختيار نوع العذر أولاً
     if (_excuseType == null) {
       SnackHelper.error(context, 'Please select excuse type');
       return;
@@ -174,27 +165,19 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
     setState(() => _isSubmitting = true);
 
     try {
-      // ✅ جلب الـ UID ديناميكياً
       final uid = FirebaseAuth.instance.currentUser!.uid;
 
-      // ═══════════════════════════════════════════════════════
-      // ✅ ارفع الملف على Cloudinary أولاً
-      // ═══════════════════════════════════════════════════════
       final fileUrl = await _uploadToCloudinary(uid);
 
-      // حفظ في كولكشن attendance (للطالب)
       await FirebaseFirestore.instance.collection('attendance').add({
         'uid': uid,
         'checkIn': Timestamp.fromDate(_selectedDate!),
         'status': 'Excused',
         'reason': _reasonController.text,
-        'attachmentUrl': fileUrl, // ✅ URL حقيقي بدل string فاضي
+        'attachmentUrl': fileUrl,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // ═══════════════════════════════════════════════════════
-      // ✅ حفظ في كولكشن Excuses عشان يظهر عند المشرف
-      // ═══════════════════════════════════════════════════════
       final traineeQ = await FirebaseFirestore.instance
           .collection('Trainees')
           .where('userId', isEqualTo: uid)
@@ -210,15 +193,14 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
           'studentId': t['studentId'],
           'studentName': t['name'],
           'supervisorId': t['supervisorId'],
-          'type': _excuseType, // ✅ النوع المختار من المستخدم
+          'type': _excuseType,
           'startDate': dateStr,
           'endDate': dateStr,
           'reason': _reasonController.text,
           'status': 'pending',
-          'fileUrl': fileUrl, // ✅ URL حقيقي بدل string فاضي
+          'fileUrl': fileUrl,
         });
       }
-      // ═══════════════════════════════════════════════════════
 
       JadeerDialog(
         title: 'Success',
@@ -233,7 +215,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
         _reasonController.clear();
         _fileName = null;
         _pickerResult = null;
-        _excuseType = null; // ✅ reset النوع
+        _excuseType = null;
       });
     } catch (e) {
       SnackHelper.error(context, 'Error: $e');
@@ -263,9 +245,6 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
             children: [
               _buildInfoCard(isDark),
               const SizedBox(height: DS.spaceLG),
-              // ═══════════════════════════════════════════════════
-              // ✅ Step 1: Excuse Type (جديد)
-              // ═══════════════════════════════════════════════════
               _buildStepHeader(
                 number: '1',
                 title: 'Excuse Type',
@@ -349,9 +328,6 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // ✅ widget جديد: اختيار نوع العذر (Sick Leave / Excuse)
-  // ══════════════════════════════════════════════════════════════
   Widget _buildExcuseTypeSelector(bool isDark) {
     return Row(
       children: [
@@ -421,11 +397,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
                         : color.withOpacity(0.08)),
                 borderRadius: BorderRadius.circular(DS.radiusLG),
               ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 24,
-              ),
+              child: Icon(icon, color: color, size: 24),
             ),
             const SizedBox(height: DS.spaceSM),
             Text(
@@ -439,20 +411,10 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 11,
-                color: DS.neutral500,
-              ),
-            ),
+            Text(subtitle, style: TextStyle(fontSize: 11, color: DS.neutral500)),
             if (isSelected) ...[
               const SizedBox(height: DS.spaceSM),
-              Icon(
-                Icons.check_circle_rounded,
-                color: color,
-                size: 18,
-              ),
+              Icon(Icons.check_circle_rounded, color: color, size: 18),
             ],
           ],
         ),
@@ -480,11 +442,8 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
               color: DS.accentAmber.withOpacity(0.15),
               borderRadius: BorderRadius.circular(DS.radiusLG),
             ),
-            child: const Icon(
-              Icons.info_outline_rounded,
-              color: DS.accentAmber,
-              size: 20,
-            ),
+            child: const Icon(Icons.info_outline_rounded,
+                color: DS.accentAmber, size: 20),
           ),
           const SizedBox(width: DS.spaceMD),
           Expanded(
@@ -518,32 +477,24 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
             borderRadius: BorderRadius.circular(DS.radiusMD),
           ),
           child: Center(
-            child: Text(
-              number,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            child: Text(number,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700)),
           ),
         ),
         const SizedBox(width: DS.spaceSM),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-                color: isDark ? Colors.white : DS.neutral800,
-              ),
-            ),
-            Text(
-              subtitle,
-              style: const TextStyle(fontSize: 12, color: DS.neutral500),
-            ),
+            Text(title,
+                style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: isDark ? Colors.white : DS.neutral800)),
+            Text(subtitle,
+                style: const TextStyle(fontSize: 12, color: DS.neutral500)),
           ],
         ),
       ],
@@ -575,9 +526,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
               decoration: BoxDecoration(
                 color: hasDate
                     ? DS.success.withOpacity(0.12)
-                    : (isDark
-                        ? DS.primary500.withOpacity(0.12)
-                        : DS.primary50),
+                    : (isDark ? DS.primary500.withOpacity(0.12) : DS.primary50),
                 borderRadius: BorderRadius.circular(DS.radiusLG),
               ),
               child: Icon(
@@ -593,10 +542,8 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    hasDate ? 'Selected Date' : 'Select Date',
-                    style: TextStyle(fontSize: 12, color: DS.neutral500),
-                  ),
+                  Text(hasDate ? 'Selected Date' : 'Select Date',
+                      style: TextStyle(fontSize: 12, color: DS.neutral500)),
                   const SizedBox(height: 2),
                   Text(
                     hasDate
@@ -604,8 +551,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
                         : 'Tap to choose a date',
                     style: TextStyle(
                       fontSize: 15,
-                      fontWeight:
-                          hasDate ? FontWeight.w600 : FontWeight.w400,
+                      fontWeight: hasDate ? FontWeight.w600 : FontWeight.w400,
                       color: hasDate
                           ? (isDark ? Colors.white : DS.neutral800)
                           : DS.neutral400,
@@ -615,11 +561,9 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
               ),
             ),
             if (hasDate)
-              const Icon(Icons.check_circle_rounded,
-                  color: DS.success, size: 22)
+              const Icon(Icons.check_circle_rounded, color: DS.success, size: 22)
             else
-              Icon(Icons.chevron_right_rounded,
-                  color: DS.neutral400, size: 22),
+              Icon(Icons.chevron_right_rounded, color: DS.neutral400, size: 22),
           ],
         ),
       ),
@@ -631,9 +575,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
       decoration: BoxDecoration(
         color: isDark ? DS.darkCard : Colors.white,
         borderRadius: BorderRadius.circular(DS.radiusXL),
-        border: Border.all(
-          color: isDark ? DS.neutral700 : DS.neutral300,
-        ),
+        border: Border.all(color: isDark ? DS.neutral700 : DS.neutral300),
         boxShadow: isDark ? null : DS.shadowSM,
       ),
       child: TextField(
@@ -674,9 +616,7 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
           ),
           boxShadow: isDark ? null : DS.shadowSM,
         ),
-        child: hasFile
-            ? _buildFileUploaded(isDark)
-            : _buildFileEmpty(isDark),
+        child: hasFile ? _buildFileUploaded(isDark) : _buildFileEmpty(isDark),
       ),
     );
   }
@@ -688,31 +628,21 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: isDark
-                ? DS.primary500.withOpacity(0.12)
-                : DS.primary50,
+            color: isDark ? DS.primary500.withOpacity(0.12) : DS.primary50,
             borderRadius: BorderRadius.circular(DS.radiusXL),
           ),
-          child: const Icon(
-            Icons.cloud_upload_outlined,
-            color: DS.primary500,
-            size: 28,
-          ),
+          child: const Icon(Icons.cloud_upload_outlined,
+              color: DS.primary500, size: 28),
         ),
         const SizedBox(height: DS.spaceMD),
-        Text(
-          'Tap to upload',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white : DS.neutral800,
-          ),
-        ),
+        Text('Tap to upload',
+            style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : DS.neutral800)),
         const SizedBox(height: DS.spaceXS),
-        Text(
-          'PDF, JPG, or PNG (max 10MB)',
-          style: TextStyle(fontSize: 12, color: DS.neutral500),
-        ),
+        Text('PDF, JPG, or PNG (max 10MB)',
+            style: TextStyle(fontSize: 12, color: DS.neutral500)),
       ],
     );
   }
@@ -727,36 +657,27 @@ class _SubmitExcusePageState extends State<SubmitExcusePage>
             color: DS.success.withOpacity(0.12),
             borderRadius: BorderRadius.circular(DS.radiusLG),
           ),
-          child: const Icon(
-            Icons.description_rounded,
-            color: DS.success,
-            size: 22,
-          ),
+          child: const Icon(Icons.description_rounded,
+              color: DS.success, size: 22),
         ),
         const SizedBox(width: DS.spaceMD),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                _fileName!,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : DS.neutral800,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
+              Text(_fileName!,
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : DS.neutral800),
+                  overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              const Text(
-                'Tap to change file',
-                style: TextStyle(fontSize: 12, color: DS.neutral500),
-              ),
+              const Text('Tap to change file',
+                  style: TextStyle(fontSize: 12, color: DS.neutral500)),
             ],
           ),
         ),
-        const Icon(Icons.check_circle_rounded,
-            color: DS.success, size: 22),
+        const Icon(Icons.check_circle_rounded, color: DS.success, size: 22),
       ],
     );
   }
