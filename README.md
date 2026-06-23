@@ -53,11 +53,11 @@ Feel free to explore the supervisor functionalities using our test account:
 
 ### 📱 Mobile Interfaces
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/41e0bf71-9958-4d25-8025-09c33641e077" width="150" title="Home Page">
-  <img src="https://github.com/user-attachments/assets/fbcd4130-bfcc-47a2-9890-a068d7aef560" width="150" title="Check-in Verification">
-  <img src="https://github.com/user-attachments/assets/f9a46867-88f7-427b-b4d9-98e5444ee322" width="150" title="Timer">
-  <img src="https://github.com/user-attachments/assets/3d46ae86-b67d-46af-bfb1-42926d5224d8" width="150" title="Sumbit Excuse">
-  <img src="https://github.com/user-attachments/assets/ebf864f8-ee91-4829-b33f-4ba97019f7b6" width="150" title="Attendance History">
+  <img src="https://github.com/user-attachments/assets/41e0bf71-9958-4d25-8025-09c33641e077" width="125" title="Home Page">
+  <img src="https://github.com/user-attachments/assets/fbcd4130-bfcc-47a2-9890-a068d7aef560" width="125" title="Check-in Verification">
+  <img src="https://github.com/user-attachments/assets/f9a46867-88f7-427b-b4d9-98e5444ee322" width="125" title="Timer">
+  <img src="https://github.com/user-attachments/assets/3d46ae86-b67d-46af-bfb1-42926d5224d8" width="125" title="Sumbit Excuse">
+  <img src="https://github.com/user-attachments/assets/ebf864f8-ee91-4829-b33f-4ba97019f7b6" width="125" title="Attendance History">
 </p>
 
 ### 🖥️ Web Interfaces
